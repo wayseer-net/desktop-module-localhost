@@ -23,6 +23,7 @@ type sample struct {
 	fss   []filesystem
 	nics  []nic
 	procs []process
+	units []unit // from systemd, not the file tree
 }
 
 type hostInfo struct{ name, kernel, os string }
@@ -52,7 +53,7 @@ type nic struct {
 
 type process struct {
 	pidStat
-	command, user string
+	command, user, cgroup string
 }
 
 // procKey identifies a process across pid reuse.
@@ -61,7 +62,7 @@ type procKey struct {
 	start uint64
 }
 
-type procDetail struct{ command, user string }
+type procDetail struct{ command, user, cgroup string }
 
 // reader reads a machine through a file tree rooted like /.
 type reader struct {
@@ -287,7 +288,7 @@ func (r *reader) processes() []process {
 			r.details[key] = d
 		}
 		seen[key] = true
-		out = append(out, process{pidStat: st, command: d.command, user: d.user})
+		out = append(out, process{pidStat: st, command: d.command, user: d.user, cgroup: d.cgroup})
 	}
 	maps.DeleteFunc(r.details, func(k procKey, _ procDetail) bool { return !seen[k] })
 	slices.SortFunc(out, func(a, b process) int { return cmp.Compare(a.pid, b.pid) })
@@ -305,10 +306,10 @@ const commandCap = 512
 func (r *reader) detail(dir string, users map[int]string) procDetail {
 	var d procDetail
 	if b, err := fs.ReadFile(r.fsys, dir+"/cmdline"); err == nil && r.cmds {
-		d.command = parseCmdline(b)
-		if len(d.command) > commandCap {
-			d.command = strings.ToValidUTF8(d.command[:commandCap], "") + "…"
-		}
+		d.command = cut(parseCmdline(b), commandCap)
+	}
+	if b, err := fs.ReadFile(r.fsys, dir+"/cgroup"); err == nil {
+		d.cgroup = parseCgroup(b)
 	}
 	if b, err := fs.ReadFile(r.fsys, dir+"/status"); err == nil {
 		if uid, ok := parseUID(b); ok {

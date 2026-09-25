@@ -4,6 +4,7 @@ import (
 	"maps"
 	"mindseye/internal/model"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -61,8 +62,57 @@ func (m *Module) buildWorld(s *sample) world {
 		}))
 		b.link(r, b.w.host, model.RelMemberOf)
 	}
+	b.units(s.units)
 	b.processes(s)
 	return b.w
+}
+
+// units adds each unit running on the host, and dependencies between listed units: a soft
+// dependency (Wants) weighs half.
+func (b *builder) units(us []unit) {
+	for _, u := range us {
+		kind, typ := unitKind(u.Name)
+		name := strings.TrimSuffix(u.Name, ".service")
+		r := b.add(kind, u.Name, name, unitStatus(u.ActiveState), pruned(map[string]model.Value{
+			"unit": model.String(u.Name), "type": model.String(typ), "description": model.String(u.Description),
+			"state": model.String(u.ActiveState), "sub_state": model.String(u.SubState),
+		}))
+		b.link(r, b.w.host, model.RelRunsOn)
+	}
+	for _, u := range us {
+		from := b.unitRef(u.Name)
+		for _, d := range u.deps.hard {
+			b.linkListed(from, b.unitRef(d), model.RelDependsOn, 1)
+		}
+		for _, d := range u.deps.soft {
+			b.linkListed(from, b.unitRef(d), model.RelDependsOn, 0.5)
+		}
+	}
+}
+
+func (b *builder) unitRef(name string) model.EntityRef {
+	kind, _ := unitKind(name)
+	return b.ref(kind, name)
+}
+
+// unitOfCgroup is the innermost listed unit in a cgroup path, so a user's session processes
+// belong to user@UID.service when their own user units are not listed.
+func (b *builder) unitOfCgroup(path string) (model.EntityRef, bool) {
+	parts := strings.Split(path, "/")
+	for i := len(parts) - 1; i >= 0; i-- {
+		if !strings.Contains(parts[i], ".") {
+			continue
+		}
+		if r := b.unitRef(parts[i]); b.listed(r) {
+			return r, true
+		}
+	}
+	return "", false
+}
+
+func (b *builder) listed(r model.EntityRef) bool {
+	_, ok := b.w.ents[r]
+	return ok
 }
 
 var okStatus = model.Status{Level: model.StatusOK}
@@ -142,6 +192,9 @@ func (b *builder) processes(s *sample) {
 		})
 		r := b.add(model.KindProcess, strconv.Itoa(p.pid), p.comm, okStatus, a)
 		b.link(r, b.w.host, model.RelRunsOn)
+		if u, ok := b.unitOfCgroup(p.cgroup); ok {
+			b.link(r, u, model.RelMemberOf)
+		}
 		if listed[p.ppid] {
 			b.link(b.ref(model.KindProcess, strconv.Itoa(p.ppid)), r, model.RelParentOf)
 		}
@@ -163,8 +216,20 @@ func (b *builder) add(kind model.Kind, native, name string, st model.Status, a m
 }
 
 func (b *builder) link(from, to model.EntityRef, rel model.Relation) {
-	e := model.Edge{From: from, To: to, Rel: rel, Weight: 1, Source: b.src}
+	b.linkWeighted(from, to, rel, 1)
+}
+
+func (b *builder) linkWeighted(from, to model.EntityRef, rel model.Relation, weight float64) {
+	e := model.Edge{From: from, To: to, Rel: rel, Weight: weight, Source: b.src}
 	b.w.edges[e.Key()] = e
+}
+
+// linkListed links to an entity only if it is listed; a hard dependency wins over a soft one.
+func (b *builder) linkListed(from, to model.EntityRef, rel model.Relation, weight float64) {
+	k := model.EdgeKey{From: from, To: to, Rel: rel}
+	if old, ok := b.w.edges[k]; b.listed(to) && (!ok || old.Weight < weight) {
+		b.linkWeighted(from, to, rel, weight)
+	}
 }
 
 // pruned drops empty strings and lists, which say nothing.

@@ -77,7 +77,7 @@ func TestConformance(t *testing.T) {
 
 func TestWorldFromFixture(t *testing.T) {
 	m := testModule(t, copyFixture(t), "")
-	m.poll(time.Unix(1000, 0))
+	m.poll(context.Background(), time.Unix(1000, 0))
 	byKind := map[model.Kind][]string{}
 	for _, e := range m.world.ents {
 		byKind[e.Kind] = append(byKind[e.Kind], e.Ref.Native())
@@ -99,7 +99,7 @@ func TestWorldFromFixture(t *testing.T) {
 
 func TestAttributesAndStatus(t *testing.T) {
 	m := testModule(t, copyFixture(t), "")
-	m.poll(time.Unix(1000, 0))
+	m.poll(context.Background(), time.Unix(1000, 0))
 	host := m.world.ents[ref(model.KindHost, "testbox")]
 	if host.Attrs["os"].Str() != "Testix Linux 1.0" || host.Attrs["cores"].Num() != 4 || host.Attrs["kernel"].Str() != "6.9.1-test" {
 		t.Errorf("host attrs = %v", host.Attrs)
@@ -123,7 +123,7 @@ func TestAttributesAndStatus(t *testing.T) {
 
 func TestEdges(t *testing.T) {
 	m := testModule(t, copyFixture(t), "")
-	m.poll(time.Unix(1000, 0))
+	m.poll(context.Background(), time.Unix(1000, 0))
 	host := ref(model.KindHost, "testbox")
 	for _, e := range []model.Edge{
 		{From: ref(KindFilesystem, "dm-0"), To: ref(model.KindDisk, "nvme0n1"), Rel: model.RelRunsOn},
@@ -140,7 +140,7 @@ func TestEdges(t *testing.T) {
 
 func TestCommandsCanBeHidden(t *testing.T) {
 	m := testModule(t, copyFixture(t), "commands: false")
-	m.poll(time.Unix(1000, 0))
+	m.poll(context.Background(), time.Unix(1000, 0))
 	if _, ok := m.world.ents[ref(model.KindProcess, "1201")].Attrs["command"]; ok {
 		t.Error("command shown with commands: false")
 	}
@@ -178,7 +178,7 @@ func latest(t *testing.T, m *Module, r model.EntityRef, metric string) float64 {
 func TestRatesBetweenPolls(t *testing.T) {
 	root := copyFixture(t)
 	m := testModule(t, root, "")
-	m.poll(time.Unix(1000, 0))
+	m.poll(context.Background(), time.Unix(1000, 0))
 	// Over 2 s: 400 ticks pass on 4 CPUs, 100 of them busy on cpu0; bash uses 40.
 	rewrite(t, root, "proc/stat", "cpu  4000 100 1000 90000", "cpu  4100 100 1000 90300")
 	rewrite(t, root, "proc/stat", "cpu0 1000 25 250 22500", "cpu0 1100 25 250 22500")
@@ -188,7 +188,7 @@ func TestRatesBetweenPolls(t *testing.T) {
 	rewrite(t, root, "proc/1201/stat", "300 100", "330 110")
 	rewrite(t, root, "proc/diskstats", "nvme0n1 346373 16893 21638309", "nvme0n1 346373 16893 21642405")
 	rewrite(t, root, "proc/net/dev", "wlan0: 4926113947", "wlan0: 4926115947")
-	m.poll(time.Unix(1002, 0))
+	m.poll(context.Background(), time.Unix(1002, 0))
 	for _, c := range []struct {
 		r      model.EntityRef
 		metric string
@@ -213,10 +213,10 @@ func TestRatesBetweenPolls(t *testing.T) {
 func TestDeltasSendOnlyChanges(t *testing.T) {
 	root := copyFixture(t)
 	m := testModule(t, root, "")
-	if cs := m.poll(time.Unix(1000, 0)); len(cs.Upserts) != len(m.world.ents) {
+	if cs := m.poll(context.Background(), time.Unix(1000, 0)); len(cs.Upserts) != len(m.world.ents) {
 		t.Fatalf("first poll sent %d of %d entities", len(cs.Upserts), len(m.world.ents))
 	}
-	if cs := m.poll(time.Unix(1002, 0)); !cs.Empty() {
+	if cs := m.poll(context.Background(), time.Unix(1002, 0)); !cs.Empty() {
 		t.Errorf("unchanged machine sent %+v", cs)
 	}
 	if err := os.RemoveAll(filepath.Join(root, "proc/1201")); err != nil {
@@ -224,7 +224,7 @@ func TestDeltasSendOnlyChanges(t *testing.T) {
 	}
 	fakeUsage["."] = fsUsage{total: 100, used: 92, avail: 8}
 	t.Cleanup(func() { delete(fakeUsage, ".") })
-	cs := m.poll(time.Unix(1004, 0))
+	cs := m.poll(context.Background(), time.Unix(1004, 0))
 	if !slices.Equal(cs.Removes, []model.EntityRef{ref(model.KindProcess, "1201")}) {
 		t.Errorf("removes = %v; want bash", cs.Removes)
 	}
@@ -239,11 +239,11 @@ func TestDeltasSendOnlyChanges(t *testing.T) {
 func TestUnreadableRootShowsInHealth(t *testing.T) {
 	root := copyFixture(t)
 	m := testModule(t, root, "")
-	m.poll(time.Unix(1000, 0))
+	m.poll(context.Background(), time.Unix(1000, 0))
 	if err := os.Remove(filepath.Join(root, "proc/stat")); err != nil {
 		t.Fatal(err)
 	}
-	cs := m.poll(time.Unix(1002, 0))
+	cs := m.poll(context.Background(), time.Unix(1002, 0))
 	if err := m.Health().Err; !errors.Is(err, fs.ErrNotExist) || !strings.Contains(err.Error(), "/proc/stat") {
 		t.Errorf("health = %v", err)
 	}
@@ -254,7 +254,7 @@ func TestUnreadableRootShowsInHealth(t *testing.T) {
 
 func TestProcessesCanBeLeftOut(t *testing.T) {
 	m := testModule(t, copyFixture(t), "processes: false")
-	m.poll(time.Unix(1000, 0))
+	m.poll(context.Background(), time.Unix(1000, 0))
 	for _, e := range m.world.ents {
 		if e.Kind == model.KindProcess {
 			t.Fatalf("process %s listed with processes: false", e.Name)
@@ -263,7 +263,10 @@ func TestProcessesCanBeLeftOut(t *testing.T) {
 }
 
 func TestBadOptions(t *testing.T) {
-	for _, opts := range []string{"interval: 10ms", "history: 5s", "process_history: 2h", "root: relative/path", "interval: soon"} {
+	for _, opts := range []string{
+		"interval: 10ms", "history: 5s", "process_history: 2h", "root: relative/path", "interval: soon",
+		"units: [widget]", "journal: loud", "journal_backlog: 5000",
+	} {
 		var n yaml.Node
 		_ = yaml.Unmarshal([]byte(opts), &n)
 		if err := New().Configure(context.Background(), module.Config{Name: "local", Options: *n.Content[0]}); err == nil {

@@ -30,19 +30,28 @@ type Module struct {
 	health   atomic.Pointer[data.Health]
 
 	// Replaceable for tests; default to the running system.
-	statfs func(path string) (fsUsage, error)
-	addrs  func() map[string][]string
+	statfs       func(path string) (fsUsage, error)
+	addrs        func() map[string][]string
+	system       system
+	journalRetry time.Duration // wait before restarting journalctl
 
-	mu      sync.Mutex // guards what follows, shared by Run and queries
-	reader  reader
-	world   world
-	last    *sample
-	tracker module.Tracker
-	series  map[data.SeriesRef]*data.Ring
+	mu          sync.Mutex // guards what follows, shared by Run and queries
+	reader      reader
+	units       unitWatcher
+	journal     system // nil when the journal is not read
+	world       world
+	last        *sample
+	tracker     module.Tracker
+	series      map[data.SeriesRef]*data.Ring
+	events      *module.EventLog
+	journalNote string
+	running     bool
 }
 
 // New makes an unconfigured module.
-func New() *Module { return &Module{statfs: statfs, addrs: interfaceAddrs} }
+func New() *Module {
+	return &Module{statfs: statfs, addrs: interfaceAddrs, system: liveSystem{}, journalRetry: 30 * time.Second}
+}
 
 // Info describes the module.
 func (m *Module) Info() module.Info {
@@ -64,58 +73,99 @@ func (m *Module) Configure(_ context.Context, cfg module.Config) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.name, m.opts, m.pageSize = cfg.Name, o, uint64(os.Getpagesize())
-	addrs := m.addrs
-	if o.Root != "/" {
-		addrs = nil // another machine's tree: this one's addresses would be wrong
+	addrs, sys := m.addrs, m.system
+	if _, live := sys.(liveSystem); live && o.Root != "/" {
+		addrs, sys = nil, nil // another machine's tree: this one's addresses and services would be wrong
 	}
 	m.reader = reader{
 		fsys: os.DirFS(o.Root), root: o.Root, statfs: m.statfs, addrs: addrs,
 		procs: o.Processes, cmds: o.Commands, details: map[procKey]procDetail{},
 	}
+	m.units.close()
+	m.units, m.journal = newUnitWatcher(sys, o.Units), sys
+	if o.priority < 0 {
+		m.journal = nil
+	}
 	m.world, m.last = world{}, nil
 	m.tracker.Reset()
 	m.series = map[data.SeriesRef]*data.Ring{}
+	m.events, m.journalNote = module.NewEventLog(eventCap), ""
 	m.health.Store(&data.Health{})
 	return nil
 }
 
-// Run sends a snapshot, then a delta of what changed at every interval, until ctx ends.
+// Run sends a snapshot, then a delta of what changed at every interval and of journal
+// entries as they come, until ctx ends.
 func (m *Module) Run(ctx context.Context, sink module.Sink) error {
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	m.mu.Lock()
 	m.tracker.Reset() // a snapshot resends everything
+	m.running = true
+	journal := m.journal
 	m.mu.Unlock()
-	if err := sink.Snapshot(ctx, m.poll(time.Now())); err != nil {
+	defer m.stop()
+	entries := make(chan journalEntry, entryBatch)
+	if journal != nil {
+		wg.Go(func() { m.followJournal(ctx, journal, entries) })
+	}
+	if err := sink.Snapshot(ctx, m.poll(ctx, time.Now())); err != nil {
 		return err
 	}
 	t := time.NewTicker(m.opts.Interval)
 	defer t.Stop()
 	for {
+		var cs *model.ChangeSet
 		select {
 		case <-ctx.Done():
 			return nil
 		case now := <-t.C:
-			if cs := m.poll(now); !cs.Empty() {
-				if err := sink.Delta(ctx, cs); err != nil {
-					return err
-				}
+			cs = m.poll(ctx, now)
+		case e := <-entries:
+			cs = m.logged(drain(e, entries))
+		}
+		if !cs.Empty() {
+			if err := sink.Delta(ctx, cs); err != nil {
+				return err
 			}
 		}
 	}
 }
 
-// poll samples the machine, records series, and returns what changed since the last send. A
-// failed read keeps the last world and shows in Health.
-func (m *Module) poll(now time.Time) *model.ChangeSet {
+func (m *Module) stop() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.running = false
+	m.units.close()
+}
+
+// poll samples the machine and its units, records series, and returns what changed since the
+// last send. A failed read keeps the last world and shows in Health.
+func (m *Module) poll(ctx context.Context, now time.Time) *model.ChangeSet {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	s, err := m.reader.read(now)
-	m.health.Store(&data.Health{Err: err})
 	if err == nil {
+		s.units = m.units.read(ctx, now)
 		m.world = m.buildWorld(s)
 		m.record(&m.world, s, m.last)
 		m.last = s
 	}
+	m.health.Store(&data.Health{Err: err, Note: m.note()})
 	return m.tracker.Changes(m.world.ents, m.world.edges, now)
+}
+
+// note joins what limits the view without being an error: systemd or the journal missing.
+func (m *Module) note() string {
+	var notes []string
+	for _, n := range []string{m.units.note, m.journalNote} {
+		if n != "" {
+			notes = append(notes, n)
+		}
+	}
+	return strings.Join(notes, "; ")
 }
 
 // Health reports whether the machine could be read.
@@ -137,6 +187,10 @@ func (m *Module) Discover(ctx context.Context) (*model.ChangeSet, error) {
 		s, err := m.reader.read(time.Now())
 		if err != nil {
 			return nil, err
+		}
+		s.units = m.units.read(ctx, time.Now())
+		if !m.running {
+			m.units.close()
 		}
 		m.world = m.buildWorld(s)
 	}
