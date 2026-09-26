@@ -118,15 +118,17 @@ func (m *Module) Run(ctx context.Context, sink module.Sink) error {
 	defer t.Stop()
 	for {
 		var cs *model.ChangeSet
+		read := false // a good read is sent even when nothing changed, so the data stays fresh
 		select {
 		case <-ctx.Done():
 			return nil
 		case now := <-t.C:
 			cs = m.poll(ctx, now)
+			read = m.Health().Err == nil
 		case e := <-entries:
 			cs = m.logged(drain(e, entries))
 		}
-		if !cs.Empty() {
+		if read || !cs.Empty() {
 			if err := sink.Delta(ctx, cs); err != nil {
 				return err
 			}
