@@ -1,9 +1,7 @@
 package localhost
 
 import (
-	"mindseye/internal/data"
-	"mindseye/internal/model"
-	"mindseye/internal/module"
+	"mindseye/pkg/sdk"
 	"strconv"
 )
 
@@ -24,31 +22,31 @@ const (
 	MetricRSS        = "memory.rss"
 )
 
-func kinds(ks ...model.Kind) []model.Kind { return ks }
+func kinds(ks ...sdk.Kind) []sdk.Kind { return ks }
 
-var catalogue = []module.Metric{
-	{Name: MetricCPU, Unit: model.UnitPercent, Kinds: kinds(model.KindHost, KindCPU, model.KindProcess), Description: "share of CPU time spent busy; for a process, its share of the whole host", Native: "/proc/stat, /proc/<pid>/stat"},
-	{Name: MetricMemUtil, Unit: model.UnitPercent, Kinds: kinds(model.KindHost, KindMemory), Description: "share of memory not available to new work", Native: "/proc/meminfo MemAvailable"},
-	{Name: MetricMemUsed, Unit: model.UnitBytes, Kinds: kinds(KindMemory), Description: "memory not available to new work", Native: "MemTotal - MemAvailable"},
-	{Name: MetricMemAvail, Unit: model.UnitBytes, Kinds: kinds(KindMemory), Description: "memory available to new work without swapping", Native: "MemAvailable"},
-	{Name: MetricSwapUsed, Unit: model.UnitBytes, Kinds: kinds(KindMemory), Description: "swap in use", Native: "SwapTotal - SwapFree"},
-	{Name: MetricDiskRead, Unit: model.UnitBytesPS, Kinds: kinds(model.KindDisk), Description: "bytes read", Native: "/proc/diskstats sectors read"},
-	{Name: MetricDiskWrite, Unit: model.UnitBytesPS, Kinds: kinds(model.KindDisk), Description: "bytes written", Native: "/proc/diskstats sectors written"},
-	{Name: MetricDiskUtil, Unit: model.UnitPercent, Kinds: kinds(model.KindDisk), Description: "share of time with I/O in flight", Native: "/proc/diskstats io ticks"},
-	{Name: MetricFSUsed, Unit: model.UnitBytes, Kinds: kinds(KindFilesystem), Description: "space used", Native: "statfs"},
-	{Name: MetricFSUtil, Unit: model.UnitPercent, Kinds: kinds(KindFilesystem), Description: "share of space used, as df reports it", Native: "statfs"},
-	{Name: MetricNetReceive, Unit: model.UnitBytesPS, Kinds: kinds(model.KindInterface), Description: "bytes received", Native: "/proc/net/dev"},
-	{Name: MetricNetSend, Unit: model.UnitBytesPS, Kinds: kinds(model.KindInterface), Description: "bytes sent", Native: "/proc/net/dev"},
-	{Name: MetricRSS, Unit: model.UnitBytes, Kinds: kinds(model.KindProcess), Description: "resident memory", Native: "/proc/<pid>/stat rss"},
+var catalogue = []sdk.Metric{
+	{Name: MetricCPU, Unit: sdk.UnitPercent, Kinds: kinds(sdk.KindHost, KindCPU, sdk.KindProcess), Description: "share of CPU time spent busy; for a process, its share of the whole host", Native: "/proc/stat, /proc/<pid>/stat"},
+	{Name: MetricMemUtil, Unit: sdk.UnitPercent, Kinds: kinds(sdk.KindHost, KindMemory), Description: "share of memory not available to new work", Native: "/proc/meminfo MemAvailable"},
+	{Name: MetricMemUsed, Unit: sdk.UnitBytes, Kinds: kinds(KindMemory), Description: "memory not available to new work", Native: "MemTotal - MemAvailable"},
+	{Name: MetricMemAvail, Unit: sdk.UnitBytes, Kinds: kinds(KindMemory), Description: "memory available to new work without swapping", Native: "MemAvailable"},
+	{Name: MetricSwapUsed, Unit: sdk.UnitBytes, Kinds: kinds(KindMemory), Description: "swap in use", Native: "SwapTotal - SwapFree"},
+	{Name: MetricDiskRead, Unit: sdk.UnitBytesPS, Kinds: kinds(sdk.KindDisk), Description: "bytes read", Native: "/proc/diskstats sectors read"},
+	{Name: MetricDiskWrite, Unit: sdk.UnitBytesPS, Kinds: kinds(sdk.KindDisk), Description: "bytes written", Native: "/proc/diskstats sectors written"},
+	{Name: MetricDiskUtil, Unit: sdk.UnitPercent, Kinds: kinds(sdk.KindDisk), Description: "share of time with I/O in flight", Native: "/proc/diskstats io ticks"},
+	{Name: MetricFSUsed, Unit: sdk.UnitBytes, Kinds: kinds(KindFilesystem), Description: "space used", Native: "statfs"},
+	{Name: MetricFSUtil, Unit: sdk.UnitPercent, Kinds: kinds(KindFilesystem), Description: "share of space used, as df reports it", Native: "statfs"},
+	{Name: MetricNetReceive, Unit: sdk.UnitBytesPS, Kinds: kinds(sdk.KindInterface), Description: "bytes received", Native: "/proc/net/dev"},
+	{Name: MetricNetSend, Unit: sdk.UnitBytesPS, Kinds: kinds(sdk.KindInterface), Description: "bytes sent", Native: "/proc/net/dev"},
+	{Name: MetricRSS, Unit: sdk.UnitBytes, Kinds: kinds(sdk.KindProcess), Description: "resident memory", Native: "/proc/<pid>/stat rss"},
 }
 
-func unitOf(metric string) model.Unit {
+func unitOf(metric string) sdk.Unit {
 	for _, m := range catalogue {
 		if m.Name == metric {
 			return m.Unit
 		}
 	}
-	return model.UnitNone
+	return sdk.UnitNone
 }
 
 // recorder writes one sample's points; rates compare it with the previous sample.
@@ -117,7 +115,7 @@ func (r *recorder) devices() {
 	}
 	for _, d := range r.cur.disks {
 		if b, ok := before[d.name]; ok {
-			ref := r.ref(model.KindDisk, d.name)
+			ref := r.ref(sdk.KindDisk, d.name)
 			r.rate(ref, MetricDiskRead, b.read, d.io.read)
 			r.rate(ref, MetricDiskWrite, b.written, d.io.written)
 			if d.io.busy >= b.busy {
@@ -131,7 +129,7 @@ func (r *recorder) devices() {
 	}
 	for _, n := range r.cur.nics {
 		if b, ok := nets[n.name]; ok {
-			ref := r.ref(model.KindInterface, n.name)
+			ref := r.ref(sdk.KindInterface, n.name)
 			r.rate(ref, MetricNetReceive, b.rx, n.io.rx)
 			r.rate(ref, MetricNetSend, b.tx, n.io.tx)
 		}
@@ -148,7 +146,7 @@ func (r *recorder) processes() {
 	}
 	capacity := r.elapsed * clockTick * float64(max(len(r.cur.stat.cpus), 1))
 	for _, p := range r.cur.procs {
-		ref := r.ref(model.KindProcess, strconv.Itoa(p.pid))
+		ref := r.ref(sdk.KindProcess, strconv.Itoa(p.pid))
 		r.put(ref, MetricRSS, float64(p.rss*r.m.pageSize))
 		if cpu, ok := before[procKey{p.pid, p.start}]; ok && capacity > 0 && p.cpu >= cpu {
 			r.put(ref, MetricCPU, min(100, 100*float64(p.cpu-cpu)/capacity))
@@ -165,27 +163,27 @@ func busyShare(a, b cpuTimes) float64 {
 }
 
 // rate records growth per second; a counter that went backwards (a reset) records nothing.
-func (r *recorder) rate(ref model.EntityRef, metric string, before, after uint64) {
+func (r *recorder) rate(ref sdk.EntityRef, metric string, before, after uint64) {
 	if after >= before {
 		r.put(ref, metric, float64(after-before)/r.elapsed)
 	}
 }
 
-func (r *recorder) ref(kind model.Kind, native string) model.EntityRef {
+func (r *recorder) ref(kind sdk.Kind, native string) sdk.EntityRef {
 	b := builder{src: r.m.name}
 	return b.ref(kind, native)
 }
 
-func (r *recorder) put(ref model.EntityRef, metric string, v float64) {
-	key := data.SeriesRef{Entity: ref, Metric: metric}
+func (r *recorder) put(ref sdk.EntityRef, metric string, v float64) {
+	key := sdk.SeriesRef{Entity: ref, Metric: metric}
 	h := r.m.series[key]
 	if h == nil {
 		keep := r.m.opts.History
-		if ref.Kind() == model.KindProcess {
+		if ref.Kind() == sdk.KindProcess {
 			keep = r.m.opts.ProcessHistory
 		}
-		h = data.NewRing(r.m.opts.points(keep))
+		h = sdk.NewRing(r.m.opts.points(keep))
 		r.m.series[key] = h
 	}
-	h.Add(data.Point{T: r.cur.at.UnixNano(), V: v})
+	h.Add(sdk.Point{T: r.cur.at.UnixNano(), V: v})
 }

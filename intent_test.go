@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"mindseye/internal/model"
+	"mindseye/pkg/sdk"
 	"slices"
 	"testing"
 	"time"
@@ -59,14 +59,14 @@ type endCase struct {
 	trigger   string // an active unit that starts it
 	journal   bool   // the manager's journal lines are read
 	during    bool   // a listing is taken while it ends
-	status    model.Status
+	status    sdk.Status
 	message   string
 }
 
 func TestRecordedEndingsClassify(t *testing.T) {
-	down := model.Status{Level: model.StatusDown, Reason: "should be running"}
-	stopped := model.Status{Level: model.StatusUnknown, Reason: "stopped"}
-	finished := model.Status{Level: model.StatusUnknown, Reason: "finished"}
+	down := sdk.Status{Level: sdk.StatusDown, Reason: "should be running"}
+	stopped := sdk.Status{Level: sdk.StatusUnknown, Reason: "stopped"}
+	finished := sdk.Status{Level: sdk.StatusUnknown, Reason: "finished"}
 	for name, c := range map[string]endCase{
 		"systemctl stop, seen in the journal":          {rec: "stop", fileState: "enabled", journal: true, status: stopped, message: "stopped by request"},
 		"systemctl stop, seen as a stop job":           {rec: "stop", fileState: "enabled", during: true, status: stopped, message: "stopped by request"},
@@ -77,7 +77,7 @@ func TestRecordedEndingsClassify(t *testing.T) {
 		"killed while enabled and started by a socket": {rec: "kill", fileState: "enabled", trigger: "mindseye-rec.socket", journal: true, status: down, message: "exited unexpectedly"},
 		"killed while transient":                       {rec: "kill", journal: true, status: stopped, message: "stopped"},
 		"crashed while enabled":                        {rec: "crash", fileState: "enabled", journal: true, status: down, message: "failed"},
-		"crashed while transient":                      {rec: "crash", journal: true, status: model.Status{Level: model.StatusCrit, Reason: "failed"}, message: "failed"},
+		"crashed while transient":                      {rec: "crash", journal: true, status: sdk.Status{Level: sdk.StatusCrit, Reason: "failed"}, message: "failed"},
 		"an enabled oneshot finished":                  {rec: "oneshot", fileState: "enabled", pulled: true, journal: true, status: finished, message: "finished"},
 		"a timer's oneshot finished":                   {rec: "timer", fileState: "static", trigger: "mindseye-rec-timer.timer", journal: true, status: finished, message: "finished"},
 		"a timer's long-running service ended":         {rec: "timer", fileState: "enabled", svcType: "simple", trigger: "mindseye-rec-timer.timer", journal: true, status: stopped, message: "stopped"},
@@ -87,7 +87,7 @@ func TestRecordedEndingsClassify(t *testing.T) {
 			if got := m.world.ents[unitRef(unit)].Status; got != c.status {
 				t.Errorf("status %+v, want %+v", got, c.status)
 			}
-			i := slices.IndexFunc(evs, func(e model.Event) bool { return e.Kind == "state" && e.Entity == unitRef(unit) })
+			i := slices.IndexFunc(evs, func(e sdk.Event) bool { return e.Kind == "state" && e.Entity == unitRef(unit) })
 			if i < 0 || evs[i].Message != c.message {
 				t.Errorf("state events %+v, want %q", evs, c.message)
 			}
@@ -97,7 +97,7 @@ func TestRecordedEndingsClassify(t *testing.T) {
 
 // replay lists the recorded unit running, then as it ended, with the extra journal entries read
 // before it did; it returns the events of the end.
-func replay(t *testing.T, rec stopRecording, c endCase, extra ...journalEntry) (*Module, string, []model.Event) {
+func replay(t *testing.T, rec stopRecording, c endCase, extra ...journalEntry) (*Module, string, []sdk.Event) {
 	t.Helper()
 	unit := "mindseye-rec-" + c.rec + ".service"
 	f := newFakeSystem(t)
@@ -180,7 +180,7 @@ func TestAStopFromBeforeTheLastStartIsForgotten(t *testing.T) {
 	stop.at = stop.at.Add(-time.Hour)
 	c := endCase{rec: "kill", fileState: "enabled"}
 	m, unit := replayWith(t, recordings(t)["kill"], c, stop)
-	if got := m.world.ents[unitRef(unit)].Status.Level; got != model.StatusDown {
+	if got := m.world.ents[unitRef(unit)].Status.Level; got != sdk.StatusDown {
 		t.Errorf("an old stop excused a kill: %v", got)
 	}
 }
@@ -192,7 +192,7 @@ func TestAStartClearsAStopRequest(t *testing.T) {
 	stop.at = start.at.Add(100 * time.Millisecond) // after it started, so only the start can clear it
 	start.at = stop.at.Add(100 * time.Millisecond)
 	m, unit := replayWith(t, kill, endCase{rec: "kill", fileState: "enabled"}, stop, start)
-	if got := m.world.ents[unitRef(unit)].Status.Level; got != model.StatusDown {
+	if got := m.world.ents[unitRef(unit)].Status.Level; got != sdk.StatusDown {
 		t.Errorf("a stop then a start excused a kill: %v", got)
 	}
 }

@@ -2,8 +2,7 @@ package localhost
 
 import (
 	"context"
-	"mindseye/internal/model"
-	"mindseye/internal/module"
+	"mindseye/pkg/sdk"
 	"slices"
 	"testing"
 	"time"
@@ -12,7 +11,7 @@ import (
 var sshd = unitRef("sshd.service")
 
 // pollAt polls at Unix second sec and returns the events sent with the changes.
-func pollAt(m *Module, sec int64) []model.Event {
+func pollAt(m *Module, sec int64) []sdk.Event {
 	return m.poll(context.Background(), time.Unix(sec, 0)).Events
 }
 
@@ -27,7 +26,7 @@ func askStop(m *Module, sec int64) {
 	m.units.jobLogged(journalEntry{object: "sshd.service", jobType: "stop", at: time.Unix(sec, 0)})
 }
 
-func wantStateEvent(t *testing.T, evs []model.Event, msg, from, to string, sev model.Severity) {
+func wantStateEvent(t *testing.T, evs []sdk.Event, msg, from, to string, sev sdk.Severity) {
 	t.Helper()
 	if len(evs) != 1 {
 		t.Fatalf("events = %+v, want one %q", evs, msg)
@@ -47,18 +46,18 @@ func TestStoppedUnitStaysListedAsStopped(t *testing.T) {
 	}
 	askStop(m, 1001)
 	f.setState("sshd.service", "inactive", "dead")
-	wantStateEvent(t, pollAt(m, 1002), "stopped by request", "active", "inactive", model.SevInfo)
+	wantStateEvent(t, pollAt(m, 1002), "stopped by request", "active", "inactive", sdk.SevInfo)
 	e, ok := m.world.ents[sshd]
 	if !ok {
 		t.Fatal("a stopped unit left the world")
 	}
-	if e.Status != (model.Status{Level: model.StatusUnknown, Reason: "stopped"}) || e.Attrs["state"].Str() != "inactive" {
+	if e.Status != (sdk.Status{Level: sdk.StatusUnknown, Reason: "stopped"}) || e.Attrs["state"].Str() != "inactive" {
 		t.Errorf("stopped sshd = %+v", e)
 	}
-	if _, ok := m.world.edges[model.EdgeKey{From: unitRef("multi-user.target"), To: sshd, Rel: model.RelDependsOn}]; !ok {
+	if _, ok := m.world.edges[sdk.EdgeKey{From: unitRef("multi-user.target"), To: sshd, Rel: sdk.RelDependsOn}]; !ok {
 		t.Error("a stopped unit lost its dependencies")
 	}
-	if evs, _ := m.QueryEvents(context.Background(), module.EventQuery{Entities: []model.EntityRef{sshd}}); len(evs) != 1 {
+	if evs, _ := m.QueryEvents(context.Background(), sdk.EventQuery{Entities: []sdk.EntityRef{sshd}}); len(evs) != 1 {
 		t.Errorf("queried events = %+v, want the stop", evs)
 	}
 }
@@ -69,7 +68,7 @@ func TestUnitGoneFromTheListingIsKeptAsStopped(t *testing.T) {
 	pollAt(m, 1000)
 	askStop(m, 1001)
 	f.drop("sshd.service")
-	wantStateEvent(t, pollAt(m, 1002), "stopped by request", "active", "inactive", model.SevInfo)
+	wantStateEvent(t, pollAt(m, 1002), "stopped by request", "active", "inactive", sdk.SevInfo)
 	if e := m.world.ents[sshd]; e.Status.Reason != "stopped" {
 		t.Errorf("sshd = %+v, want kept as stopped", e)
 	}
@@ -100,7 +99,7 @@ func TestKeepStoppedZeroKeepsNone(t *testing.T) {
 	pollAt(m, 1000)
 	askStop(m, 1001)
 	f.setState("sshd.service", "inactive", "dead")
-	wantStateEvent(t, pollAt(m, 1002), "stopped by request", "active", "inactive", model.SevInfo)
+	wantStateEvent(t, pollAt(m, 1002), "stopped by request", "active", "inactive", sdk.SevInfo)
 	if _, ok := m.world.ents[sshd]; ok {
 		t.Error("a stopped unit listed with keep_stopped: 0s")
 	}
@@ -114,13 +113,13 @@ func TestRestartedUnitIsOneEntityWithItsHistory(t *testing.T) {
 	f.setState("sshd.service", "inactive", "dead")
 	pollAt(m, 1002)
 	f.setState("sshd.service", "active", "running")
-	wantStateEvent(t, pollAt(m, 1004), "started", "inactive", "active", model.SevInfo)
+	wantStateEvent(t, pollAt(m, 1004), "started", "inactive", "active", sdk.SevInfo)
 	if e := m.world.ents[sshd]; e.Status != okStatus {
 		t.Errorf("restarted sshd = %+v", e.Status)
 	}
 	f.setState("sshd.service", "failed", "failed")
-	wantStateEvent(t, pollAt(m, 1006), "failed", "active", "failed", model.SevError)
-	evs, _ := m.QueryEvents(context.Background(), module.EventQuery{Entities: []model.EntityRef{sshd}})
+	wantStateEvent(t, pollAt(m, 1006), "failed", "active", "failed", sdk.SevError)
+	evs, _ := m.QueryEvents(context.Background(), sdk.EventQuery{Entities: []sdk.EntityRef{sshd}})
 	if len(evs) != 3 {
 		t.Errorf("history = %+v, want stopped, started, failed", evs)
 	}

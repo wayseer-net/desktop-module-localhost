@@ -4,9 +4,8 @@ import (
 	"context"
 	"errors"
 	"io"
-	"mindseye/internal/model"
-	"mindseye/internal/module"
-	"mindseye/internal/module/moduletest"
+	"mindseye/pkg/sdk"
+	"mindseye/pkg/sdk/sdktest"
 	"os"
 	"slices"
 	"strings"
@@ -14,7 +13,7 @@ import (
 	"time"
 )
 
-func journalModule(t *testing.T, f *fakeSystem, extra string) (*Module, *moduletest.Sink) {
+func journalModule(t *testing.T, f *fakeSystem, extra string) (*Module, *sdktest.Sink) {
 	t.Helper()
 	text, err := os.ReadFile(journalFixture)
 	if err != nil {
@@ -23,12 +22,12 @@ func journalModule(t *testing.T, f *fakeSystem, extra string) (*Module, *modulet
 	f.journalText = text
 	m := systemModule(t, f, "interval: 100ms\n"+extra)
 	m.journalRetry = 20 * time.Millisecond
-	return m, moduletest.Run(t, func(ctx context.Context, s *moduletest.Sink) error { return m.Run(ctx, s) })
+	return m, sdktest.Run(t, func(ctx context.Context, s *sdktest.Sink) error { return m.Run(ctx, s) })
 }
 
-func waitForEvents(t *testing.T, s *moduletest.Sink, n int) []model.Event {
+func waitForEvents(t *testing.T, s *sdktest.Sink, n int) []sdk.Event {
 	t.Helper()
-	moduletest.Eventually(t, func() bool { return len(s.Events()) >= n })
+	sdktest.Eventually(t, func() bool { return len(s.Events()) >= n })
 	return s.Events()
 }
 
@@ -36,16 +35,16 @@ func TestJournalEntriesBecomeEvents(t *testing.T) {
 	_, sink := journalModule(t, newFakeSystem(t), "journal: debug")
 	evs := waitForEvents(t, sink, 7)
 	want := []struct {
-		entity model.EntityRef
-		sev    model.Severity
+		entity sdk.EntityRef
+		sev    sdk.Severity
 	}{
-		{unitRef("sshd.service"), model.SevInfo},
-		{unitRef("cups.service"), model.SevError},
-		{ref(model.KindHost, "testbox"), model.SevWarn}, // the kernel
-		{unitRef("nginx.service"), model.SevCritical},
-		{ref(model.KindProcess, "1201"), model.SevInfo}, // an unlisted unit, a listed pid
-		{ref(model.KindHost, "testbox"), model.SevWarn}, // neither listed
-		{unitRef("backup.timer"), model.SevInfo},
+		{unitRef("sshd.service"), sdk.SevInfo},
+		{unitRef("cups.service"), sdk.SevError},
+		{ref(sdk.KindHost, "testbox"), sdk.SevWarn}, // the kernel
+		{unitRef("nginx.service"), sdk.SevCritical},
+		{ref(sdk.KindProcess, "1201"), sdk.SevInfo}, // an unlisted unit, a listed pid
+		{ref(sdk.KindHost, "testbox"), sdk.SevWarn}, // neither listed
+		{unitRef("backup.timer"), sdk.SevInfo},
 	}
 	for i, w := range want {
 		if e := evs[i]; e.Entity != w.entity || e.Severity != w.sev || e.Kind != "log" || e.Source != "local" {
@@ -64,7 +63,7 @@ func TestJournalEntriesBecomeEvents(t *testing.T) {
 func TestJournalEventsAreQueryable(t *testing.T) {
 	m, sink := journalModule(t, newFakeSystem(t), "journal: debug")
 	waitForEvents(t, sink, 7)
-	got, err := m.QueryEvents(context.Background(), module.EventQuery{Entities: []model.EntityRef{unitRef("cups.service")}})
+	got, err := m.QueryEvents(context.Background(), sdk.EventQuery{Entities: []sdk.EntityRef{unitRef("cups.service")}})
 	if err != nil || len(got) != 1 || got[0].Message != "Failed to start CUPS Scheduler." {
 		t.Errorf("cups events = %+v, %v", got, err)
 	}
@@ -101,8 +100,8 @@ func TestJournalResumesAfterTheLastEntry(t *testing.T) {
 	m.system, m.journalRetry = endingSystem{f}, 10*time.Millisecond
 	m.statfs = func(string) (fsUsage, error) { return fsUsage{}, nil }
 	configure(t, m, "root: "+copyFixture(t))
-	moduletest.Run(t, func(ctx context.Context, s *moduletest.Sink) error { return m.Run(ctx, s) })
-	moduletest.Eventually(t, func() bool { f.mu.Lock(); defer f.mu.Unlock(); return len(f.journalRuns) >= 2 })
+	sdktest.Run(t, func(ctx context.Context, s *sdktest.Sink) error { return m.Run(ctx, s) })
+	sdktest.Eventually(t, func() bool { f.mu.Lock(); defer f.mu.Unlock(); return len(f.journalRuns) >= 2 })
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if !slices.Contains(f.journalRuns[1], "--after-cursor=s=fixture;i=7") {
@@ -122,8 +121,8 @@ func TestMissingJournalIsANote(t *testing.T) {
 	m.system, m.journalRetry = failingSystem{newFakeSystem(t)}, time.Hour
 	m.statfs = func(string) (fsUsage, error) { return fsUsage{}, nil }
 	configure(t, m, "interval: 100ms\nroot: "+copyFixture(t))
-	moduletest.Run(t, func(ctx context.Context, s *moduletest.Sink) error { return m.Run(ctx, s) })
-	moduletest.Eventually(t, func() bool { return strings.HasPrefix(m.Health().Note, "journal: ") })
+	sdktest.Run(t, func(ctx context.Context, s *sdktest.Sink) error { return m.Run(ctx, s) })
+	sdktest.Eventually(t, func() bool { return strings.HasPrefix(m.Health().Note, "journal: ") })
 	if h := m.Health(); h.Err != nil {
 		t.Errorf("health = %+v", h)
 	}

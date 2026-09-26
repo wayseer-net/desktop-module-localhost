@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"mindseye/internal/data"
-	"mindseye/internal/model"
-	"mindseye/internal/module"
+	"mindseye/pkg/sdk"
 	"os"
 	"slices"
 	"strings"
@@ -20,14 +18,14 @@ const Kind = "localhost"
 
 const version = "1"
 
-func init() { module.Register(Kind, func() module.Module { return New() }) }
+func init() { sdk.Register(Kind, func() sdk.Module { return New() }) }
 
 // Module reports the machine it runs on: hardware, storage, network and processes.
 type Module struct {
-	name     model.ModuleID
+	name     sdk.ModuleID
 	opts     options
 	pageSize uint64
-	health   atomic.Pointer[data.Health]
+	health   atomic.Pointer[sdk.Health]
 
 	// Replaceable for tests; default to the running system.
 	statfs       func(path string) (fsUsage, error)
@@ -41,9 +39,9 @@ type Module struct {
 	journal     system // nil when the journal is not read
 	world       world
 	last        *sample
-	tracker     module.Tracker
-	series      map[data.SeriesRef]*data.Ring
-	events      *module.EventLog
+	tracker     sdk.Tracker
+	series      map[sdk.SeriesRef]*sdk.Ring
+	events      *sdk.EventLog
 	journalNote string
 	running     bool
 }
@@ -54,12 +52,12 @@ func New() *Module {
 }
 
 // Info describes the module.
-func (m *Module) Info() module.Info {
-	return module.Info{Kind: Kind, Version: version, Description: "This machine: CPUs, memory, disks, filesystems, network interfaces and processes"}
+func (m *Module) Info() sdk.Info {
+	return sdk.Info{Kind: Kind, Version: version, Description: "This machine: CPUs, memory, disks, filesystems, network interfaces and processes"}
 }
 
 // Configure decodes options; nothing is read until Run or Discover.
-func (m *Module) Configure(_ context.Context, cfg module.Config) error {
+func (m *Module) Configure(_ context.Context, cfg sdk.Config) error {
 	o := defaults()
 	if err := cfg.Decode(&o); err != nil {
 		return err
@@ -88,15 +86,15 @@ func (m *Module) Configure(_ context.Context, cfg module.Config) error {
 	}
 	m.world, m.last = world{}, nil
 	m.tracker.Reset()
-	m.series = map[data.SeriesRef]*data.Ring{}
-	m.events, m.journalNote = module.NewEventLog(eventCap), ""
-	m.health.Store(&data.Health{})
+	m.series = map[sdk.SeriesRef]*sdk.Ring{}
+	m.events, m.journalNote = sdk.NewEventLog(eventCap), ""
+	m.health.Store(&sdk.Health{})
 	return nil
 }
 
 // Run sends a snapshot, then a delta of what changed at every interval and of journal
 // entries as they come, until ctx ends.
-func (m *Module) Run(ctx context.Context, sink module.Sink) error {
+func (m *Module) Run(ctx context.Context, sink sdk.Sink) error {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	ctx, cancel := context.WithCancel(ctx)
@@ -117,7 +115,7 @@ func (m *Module) Run(ctx context.Context, sink module.Sink) error {
 	t := time.NewTicker(m.opts.Interval)
 	defer t.Stop()
 	for {
-		var cs *model.ChangeSet
+		var cs *sdk.ChangeSet
 		read := false // a good read is sent even when nothing changed, so the data stays fresh
 		select {
 		case <-ctx.Done():
@@ -145,7 +143,7 @@ func (m *Module) stop() {
 
 // poll samples the machine and its units, records series, and returns what changed since the
 // last send. A failed read keeps the last world and shows in Health.
-func (m *Module) poll(ctx context.Context, now time.Time) *model.ChangeSet {
+func (m *Module) poll(ctx context.Context, now time.Time) *sdk.ChangeSet {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	s, err := m.reader.read(now)
@@ -155,7 +153,7 @@ func (m *Module) poll(ctx context.Context, now time.Time) *model.ChangeSet {
 		m.record(&m.world, s, m.last)
 		m.last = s
 	}
-	m.health.Store(&data.Health{Err: err, Note: m.note()})
+	m.health.Store(&sdk.Health{Err: err, Note: m.note()})
 	cs := m.tracker.Changes(m.world.ents, m.world.edges, now)
 	cs.Events = m.stateEvents(m.units.takeChanges())
 	m.events.Add(cs.Events...)
@@ -174,15 +172,15 @@ func (m *Module) note() string {
 }
 
 // Health reports whether the machine could be read.
-func (m *Module) Health() data.Health {
+func (m *Module) Health() sdk.Health {
 	if h := m.health.Load(); h != nil {
 		return *h
 	}
-	return data.Health{}
+	return sdk.Health{}
 }
 
 // Discover returns the machine as last read, reading it first if Run has not.
-func (m *Module) Discover(ctx context.Context) (*model.ChangeSet, error) {
+func (m *Module) Discover(ctx context.Context) (*sdk.ChangeSet, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -199,34 +197,34 @@ func (m *Module) Discover(ctx context.Context) (*model.ChangeSet, error) {
 		}
 		m.world = m.buildWorld(s)
 	}
-	var probe module.Tracker
+	var probe sdk.Tracker
 	return probe.Changes(m.world.ents, m.world.edges, time.Now()), nil
 }
 
 // Metrics lists the series the module records.
-func (m *Module) Metrics() []module.Metric { return slices.Clone(catalogue) }
+func (m *Module) Metrics() []sdk.Metric { return slices.Clone(catalogue) }
 
 // QuerySeries answers from the recorded history, thinned to about one point per step.
-func (m *Module) QuerySeries(ctx context.Context, q data.SeriesQuery) ([]data.Series, error) {
+func (m *Module) QuerySeries(ctx context.Context, q sdk.SeriesQuery) ([]sdk.Series, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	var out []data.Series
+	var out []sdk.Series
 	for _, e := range m.matching(q) {
 		for _, name := range q.Metrics {
-			ref := data.SeriesRef{Entity: e.Ref, Metric: name}
+			ref := sdk.SeriesRef{Entity: e.Ref, Metric: name}
 			if h := m.series[ref]; h != nil {
-				out = append(out, data.Series{Ref: ref, Unit: unitOf(name), Points: thin(h.In(q.Window), q)})
+				out = append(out, sdk.Series{Ref: ref, Unit: unitOf(name), Points: thin(h.In(q.Window), q)})
 			}
 		}
 	}
 	return out, nil
 }
 
-func (m *Module) matching(q data.SeriesQuery) []model.Entity {
-	var out []model.Entity
+func (m *Module) matching(q sdk.SeriesQuery) []sdk.Entity {
+	var out []sdk.Entity
 	if len(q.Entities) > 0 {
 		for _, r := range q.Entities {
 			if e, ok := m.world.ents[r]; ok {
@@ -243,8 +241,8 @@ func (m *Module) matching(q data.SeriesQuery) []model.Entity {
 	return out
 }
 
-func (m *Module) sortedRefs() []model.EntityRef {
-	refs := make([]model.EntityRef, 0, len(m.world.ents))
+func (m *Module) sortedRefs() []sdk.EntityRef {
+	refs := make([]sdk.EntityRef, 0, len(m.world.ents))
 	for r := range m.world.ents {
 		refs = append(refs, r)
 	}
@@ -252,16 +250,16 @@ func (m *Module) sortedRefs() []model.EntityRef {
 	return refs
 }
 
-func thin(ps []data.Point, q data.SeriesQuery) []data.Point {
+func thin(ps []sdk.Point, q sdk.SeriesQuery) []sdk.Point {
 	if q.Step <= 0 {
 		return ps
 	}
-	return data.Downsample(ps, q.Window, int(q.Window.Span()/q.Step))
+	return sdk.Downsample(ps, q.Window, int(q.Window.Span()/q.Step))
 }
 
 // Search finds entities whose name or id contains text, ignoring case: a process by name or
 // pid, a filesystem by mount point.
-func (m *Module) Search(ctx context.Context, text string, limit int) ([]model.EntityRef, error) {
+func (m *Module) Search(ctx context.Context, text string, limit int) ([]sdk.EntityRef, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -271,7 +269,7 @@ func (m *Module) Search(ctx context.Context, text string, limit int) ([]model.En
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	text = strings.ToLower(text)
-	var out []model.EntityRef
+	var out []sdk.EntityRef
 	for _, r := range m.sortedRefs() {
 		e := m.world.ents[r]
 		if len(out) < limit && (strings.Contains(strings.ToLower(e.Name), text) || strings.Contains(strings.ToLower(r.Native()), text)) {

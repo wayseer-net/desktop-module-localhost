@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"mindseye/internal/model"
+	"mindseye/pkg/sdk"
 	"os"
 	"reflect"
 	"slices"
@@ -148,7 +148,7 @@ func systemModule(t *testing.T, f *fakeSystem, extra string) *Module {
 	return m
 }
 
-func unitRef(name string) model.EntityRef {
+func unitRef(name string) sdk.EntityRef {
 	kind, _ := unitKind(name)
 	return ref(kind, name)
 }
@@ -167,7 +167,7 @@ func TestUnitsFromRecordedReply(t *testing.T) {
 		}
 	}
 	sshd := m.world.ents[unitRef("sshd.service")]
-	if sshd.Kind != model.KindService || sshd.Name != "sshd" || sshd.Attrs["description"].Str() != "OpenSSH Daemon" || sshd.Attrs["sub_state"].Str() != "running" {
+	if sshd.Kind != sdk.KindService || sshd.Name != "sshd" || sshd.Attrs["description"].Str() != "OpenSSH Daemon" || sshd.Attrs["sub_state"].Str() != "running" {
 		t.Errorf("sshd = %+v", sshd)
 	}
 	if timer := m.world.ents[unitRef("backup.timer")]; timer.Kind != KindUnit || timer.Name != "backup.timer" {
@@ -178,11 +178,11 @@ func TestUnitsFromRecordedReply(t *testing.T) {
 func TestUnitStatus(t *testing.T) {
 	m := systemModule(t, newFakeSystem(t), "")
 	m.poll(context.Background(), time.Unix(1000, 0))
-	for name, want := range map[string]model.Status{
-		"sshd.service":  {Level: model.StatusOK},
-		"cups.service":  {Level: model.StatusDown, Reason: "should be running"}, // multi-user.target wants it
-		"nginx.service": {Level: model.StatusWarn, Reason: "starting"},
-		"backup.timer":  {Level: model.StatusOK},
+	for name, want := range map[string]sdk.Status{
+		"sshd.service":  {Level: sdk.StatusOK},
+		"cups.service":  {Level: sdk.StatusDown, Reason: "should be running"}, // multi-user.target wants it
+		"nginx.service": {Level: sdk.StatusWarn, Reason: "starting"},
+		"backup.timer":  {Level: sdk.StatusOK},
 	} {
 		if got := m.world.ents[unitRef(name)].Status; got != want {
 			t.Errorf("%s: %+v, want %+v", name, got, want)
@@ -193,16 +193,16 @@ func TestUnitStatus(t *testing.T) {
 func TestUnitEdges(t *testing.T) {
 	m := systemModule(t, newFakeSystem(t), "")
 	m.poll(context.Background(), time.Unix(1000, 0))
-	host := ref(model.KindHost, "testbox")
-	want := map[model.EdgeKey]float64{
-		{From: unitRef("multi-user.target"), To: unitRef("basic.target"), Rel: model.RelDependsOn}:         1,
-		{From: unitRef("multi-user.target"), To: unitRef("sshd.service"), Rel: model.RelDependsOn}:         0.5,
-		{From: unitRef("cups.service"), To: unitRef("cups.socket"), Rel: model.RelDependsOn}:               1,
-		{From: unitRef("nginx.service"), To: unitRef("systemd-journald.service"), Rel: model.RelDependsOn}: 1,
-		{From: unitRef("nginx.service"), To: unitRef("basic.target"), Rel: model.RelDependsOn}:             1,
-		{From: unitRef("sshd.service"), To: host, Rel: model.RelRunsOn}:                                    1,
-		{From: ref(model.KindProcess, "412"), To: unitRef("sshd.service"), Rel: model.RelMemberOf}:         1,
-		{From: ref(model.KindProcess, "1201"), To: unitRef("user@1000.service"), Rel: model.RelMemberOf}:   1,
+	host := ref(sdk.KindHost, "testbox")
+	want := map[sdk.EdgeKey]float64{
+		{From: unitRef("multi-user.target"), To: unitRef("basic.target"), Rel: sdk.RelDependsOn}:         1,
+		{From: unitRef("multi-user.target"), To: unitRef("sshd.service"), Rel: sdk.RelDependsOn}:         0.5,
+		{From: unitRef("cups.service"), To: unitRef("cups.socket"), Rel: sdk.RelDependsOn}:               1,
+		{From: unitRef("nginx.service"), To: unitRef("systemd-journald.service"), Rel: sdk.RelDependsOn}: 1,
+		{From: unitRef("nginx.service"), To: unitRef("basic.target"), Rel: sdk.RelDependsOn}:             1,
+		{From: unitRef("sshd.service"), To: host, Rel: sdk.RelRunsOn}:                                    1,
+		{From: ref(sdk.KindProcess, "412"), To: unitRef("sshd.service"), Rel: sdk.RelMemberOf}:           1,
+		{From: ref(sdk.KindProcess, "1201"), To: unitRef("user@1000.service"), Rel: sdk.RelMemberOf}:     1,
 	}
 	for k, w := range want {
 		if e, ok := m.world.edges[k]; !ok || e.Weight != w {
@@ -210,7 +210,7 @@ func TestUnitEdges(t *testing.T) {
 		}
 	}
 	for k := range m.world.edges {
-		if k.To == unitRef("sshdgenkeys.service") || k.From == ref(model.KindProcess, "1") && k.Rel == model.RelMemberOf {
+		if k.To == unitRef("sshdgenkeys.service") || k.From == ref(sdk.KindProcess, "1") && k.Rel == sdk.RelMemberOf {
 			t.Errorf("unexpected edge %v", k)
 		}
 	}
@@ -255,7 +255,7 @@ func TestNoSystemdIsANoteNotAnError(t *testing.T) {
 	if h := m.Health(); h.Err != nil || h.Note != "systemd not available" {
 		t.Errorf("health = %+v", h)
 	}
-	if _, ok := m.world.ents[ref(model.KindHost, "testbox")]; !ok {
+	if _, ok := m.world.ents[ref(sdk.KindHost, "testbox")]; !ok {
 		t.Error("the host is missing without systemd")
 	}
 }

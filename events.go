@@ -5,8 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
-	"mindseye/internal/model"
-	"mindseye/internal/module"
+	"mindseye/pkg/sdk"
 	"strconv"
 	"time"
 )
@@ -115,21 +114,21 @@ func drain(first journalEntry, in <-chan journalEntry) []journalEntry {
 
 // logged turns journal entries into events, kept for queries and returned to send. The service
 // manager's job lines are read for stops asked for; below the chosen priority they are not sent.
-func (m *Module) logged(entries []journalEntry) *model.ChangeSet {
+func (m *Module) logged(entries []journalEntry) *sdk.ChangeSet {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	var evs []model.Event
+	var evs []sdk.Event
 	for _, e := range entries {
 		m.units.jobLogged(e)
 		if e.priority > m.opts.priority {
 			continue
 		}
-		ev := model.Event{
+		ev := sdk.Event{
 			ID: e.cursor, Entity: m.eventEntity(e), At: e.at, Severity: severityOf(e.priority),
 			Kind: "log", Message: e.message, Source: m.name,
-			Fields: pruned(map[string]model.Value{
-				"identifier": model.String(e.ident), "unit": model.String(e.unit),
-				"priority": model.String(priorityNames[e.priority]),
+			Fields: pruned(map[string]sdk.Value{
+				"identifier": sdk.String(e.ident), "unit": sdk.String(e.unit),
+				"priority": sdk.String(priorityNames[e.priority]),
 			}),
 		}
 		if e.pid > 0 {
@@ -138,25 +137,25 @@ func (m *Module) logged(entries []journalEntry) *model.ChangeSet {
 		evs = append(evs, ev)
 	}
 	m.events.Add(evs...)
-	return &model.ChangeSet{Events: evs}
+	return &sdk.ChangeSet{Events: evs}
 }
 
 // stateEvents are events on units for their changes of active state.
-func (m *Module) stateEvents(changes []unitChange) []model.Event {
-	var evs []model.Event
+func (m *Module) stateEvents(changes []unitChange) []sdk.Event {
+	var evs []sdk.Event
 	for _, c := range changes {
-		sev, msg := model.SevInfo, stateMessage(c.from, c.to)
+		sev, msg := sdk.SevInfo, stateMessage(c.from, c.to)
 		if c.to == "inactive" {
 			msg = c.unit.endMessage()
 		}
 		if c.to == "failed" || c.unit.wanted && c.to == "inactive" {
-			sev = model.SevError
+			sev = sdk.SevError
 		}
 		b := builder{src: m.name}
-		evs = append(evs, model.Event{
+		evs = append(evs, sdk.Event{
 			ID: "state;" + c.name + ";" + strconv.FormatInt(c.at.UnixNano(), 10), Entity: b.unitRef(c.name),
 			At: c.at, Severity: sev, Kind: "state", Message: msg, Source: m.name,
-			Fields: map[string]model.Value{"unit": model.String(c.name), "from": model.String(c.from), "to": model.String(c.to)},
+			Fields: map[string]sdk.Value{"unit": sdk.String(c.name), "from": sdk.String(c.from), "to": sdk.String(c.to)},
 		})
 	}
 	return evs
@@ -181,7 +180,7 @@ func stateMessage(from, to string) string {
 
 // eventEntity is the unit the entry is about or from if listed, else its process if listed,
 // else the host.
-func (m *Module) eventEntity(e journalEntry) model.EntityRef {
+func (m *Module) eventEntity(e journalEntry) sdk.EntityRef {
 	b := builder{src: m.name, w: m.world}
 	for _, u := range []string{e.object, e.unit} {
 		if u == "" {
@@ -192,7 +191,7 @@ func (m *Module) eventEntity(e journalEntry) model.EntityRef {
 		}
 	}
 	if e.pid > 0 {
-		if r := b.ref(model.KindProcess, strconv.Itoa(e.pid)); b.listed(r) {
+		if r := b.ref(sdk.KindProcess, strconv.Itoa(e.pid)); b.listed(r) {
 			return r
 		}
 	}
@@ -200,7 +199,7 @@ func (m *Module) eventEntity(e journalEntry) model.EntityRef {
 }
 
 // QueryEvents answers from the journal entries received so far.
-func (m *Module) QueryEvents(ctx context.Context, q module.EventQuery) ([]model.Event, error) {
+func (m *Module) QueryEvents(ctx context.Context, q sdk.EventQuery) ([]sdk.Event, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

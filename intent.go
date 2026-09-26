@@ -1,15 +1,15 @@
 package localhost
 
 import (
-	"mindseye/internal/model"
+	"mindseye/pkg/sdk"
 	"slices"
 	"strings"
 	"time"
 )
 
 var (
-	shouldRun = model.Status{Level: model.StatusDown, Reason: "should be running"}
-	finished  = model.Status{Level: model.StatusUnknown, Reason: "finished"}
+	shouldRun = sdk.Status{Level: sdk.StatusDown, Reason: "should be running"}
+	finished  = sdk.Status{Level: sdk.StatusUnknown, Reason: "finished"}
 )
 
 // judge decides, for each listed unit, whether it should be running and whether a stop was asked.
@@ -51,7 +51,7 @@ func pulled(name string, listed []unit) bool {
 }
 
 // status is the unit's active state as a status, a problem when it should be running and is not.
-func (u unit) status() model.Status {
+func (u unit) status() sdk.Status {
 	switch {
 	case u.wanted && (u.ActiveState == "inactive" || u.ActiveState == "failed"):
 		return shouldRun

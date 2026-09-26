@@ -2,7 +2,7 @@ package localhost
 
 import (
 	"context"
-	"mindseye/internal/module/moduletest"
+	"mindseye/pkg/sdk/sdktest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,7 +12,7 @@ import (
 func TestAQuietMachineIsStillSentEachPoll(t *testing.T) {
 	root := copyFixture(t)
 	m := testModule(t, root, "interval: 100ms")
-	s := moduletest.Run(t, func(ctx context.Context, s *moduletest.Sink) error { return m.Run(ctx, s) })
+	s := sdktest.Run(t, func(ctx context.Context, s *sdktest.Sink) error { return m.Run(ctx, s) })
 	s.WaitFor(t, 3)
 	for i, cs := range s.Sets()[1:] {
 		if !cs.Empty() {
@@ -22,7 +22,7 @@ func TestAQuietMachineIsStillSentEachPoll(t *testing.T) {
 	if err := os.Remove(filepath.Join(root, "proc/stat")); err != nil {
 		t.Fatal(err)
 	}
-	moduletest.Eventually(t, func() bool { return m.Health().Err != nil })
+	sdktest.Eventually(t, func() bool { return m.Health().Err != nil })
 	n := len(s.Sets())
 	time.Sleep(500 * time.Millisecond)
 	if got := len(s.Sets()); got > n+1 {

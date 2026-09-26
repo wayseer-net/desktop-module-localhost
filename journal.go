@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"mindseye/internal/model"
+	"mindseye/pkg/sdk"
 	"strconv"
 	"strings"
 	"time"
@@ -96,18 +96,18 @@ func cut(s string, n int) string {
 }
 
 // severityOf maps a syslog priority to an event severity.
-func severityOf(priority int) model.Severity {
+func severityOf(priority int) sdk.Severity {
 	switch {
 	case priority <= 2:
-		return model.SevCritical
+		return sdk.SevCritical
 	case priority == 3:
-		return model.SevError
+		return sdk.SevError
 	case priority == 4:
-		return model.SevWarn
+		return sdk.SevWarn
 	case priority <= 6:
-		return model.SevInfo
+		return sdk.SevInfo
 	}
-	return model.SevDebug
+	return sdk.SevDebug
 }
 
 var priorityNames = []string{"emerg", "alert", "crit", "err", "warning", "notice", "info", "debug"}

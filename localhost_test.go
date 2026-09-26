@@ -5,10 +5,8 @@ import (
 	"errors"
 	"io/fs"
 	"math"
-	"mindseye/internal/data"
-	"mindseye/internal/model"
-	"mindseye/internal/module"
-	"mindseye/internal/module/conformance"
+	"mindseye/pkg/sdk"
+	"mindseye/pkg/sdk/sdktest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -55,20 +53,20 @@ func configure(t *testing.T, m *Module, opts string) {
 	if err := yaml.Unmarshal([]byte(opts), &n); err != nil {
 		t.Fatal(err)
 	}
-	if err := m.Configure(context.Background(), module.Config{Name: "local", Options: *n.Content[0]}); err != nil {
+	if err := m.Configure(context.Background(), sdk.Config{Name: "local", Options: *n.Content[0]}); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func ref(kind model.Kind, native string) model.EntityRef {
-	r, _ := model.NewEntityRef("local", kind, native)
+func ref(kind sdk.Kind, native string) sdk.EntityRef {
+	r, _ := sdk.NewEntityRef("local", kind, native)
 	return r
 }
 
 func TestConformance(t *testing.T) {
 	root := copyFixture(t)
-	conformance.Run(t, conformance.Case{
-		New:     func() module.Module { return New() },
+	sdktest.Conform(t, sdktest.Case{
+		New:     func() sdk.Module { return New() },
 		Name:    "local",
 		Options: "interval: 100ms\nroot: " + root,
 		Failing: "root: " + filepath.Join(root, "missing"),
@@ -78,18 +76,18 @@ func TestConformance(t *testing.T) {
 func TestWorldFromFixture(t *testing.T) {
 	m := testModule(t, copyFixture(t), "")
 	m.poll(context.Background(), time.Unix(1000, 0))
-	byKind := map[model.Kind][]string{}
+	byKind := map[sdk.Kind][]string{}
 	for _, e := range m.world.ents {
 		byKind[e.Kind] = append(byKind[e.Kind], e.Ref.Native())
 	}
-	for k, want := range map[model.Kind][]string{
-		model.KindHost:      {"testbox"},
-		KindCPU:             {"cpu0", "cpu1", "cpu2", "cpu3"},
-		KindMemory:          {"memory"},
-		model.KindDisk:      {"nvme0n1"},
-		KindFilesystem:      {"dm-0", "nvme0n1p1", "sdz1"},
-		model.KindInterface: {"eth0", "wlan0"},
-		model.KindProcess:   {"1", "1200", "1201", "412"},
+	for k, want := range map[sdk.Kind][]string{
+		sdk.KindHost:      {"testbox"},
+		KindCPU:           {"cpu0", "cpu1", "cpu2", "cpu3"},
+		KindMemory:        {"memory"},
+		sdk.KindDisk:      {"nvme0n1"},
+		KindFilesystem:    {"dm-0", "nvme0n1p1", "sdz1"},
+		sdk.KindInterface: {"eth0", "wlan0"},
+		sdk.KindProcess:   {"1", "1200", "1201", "412"},
 	} {
 		if got := slices.Sorted(slices.Values(byKind[k])); !slices.Equal(got, want) {
 			t.Errorf("%s = %v; want %v", k, got, want)
@@ -100,21 +98,21 @@ func TestWorldFromFixture(t *testing.T) {
 func TestAttributesAndStatus(t *testing.T) {
 	m := testModule(t, copyFixture(t), "")
 	m.poll(context.Background(), time.Unix(1000, 0))
-	host := m.world.ents[ref(model.KindHost, "testbox")]
+	host := m.world.ents[ref(sdk.KindHost, "testbox")]
 	if host.Attrs["os"].Str() != "Testix Linux 1.0" || host.Attrs["cores"].Num() != 4 || host.Attrs["kernel"].Str() != "6.9.1-test" {
 		t.Errorf("host attrs = %v", host.Attrs)
 	}
 	root := m.world.ents[ref(KindFilesystem, "dm-0")]
-	if root.Name != "/" || root.Attrs["mounts"].String() != model.List(model.String("/"), model.String("/home"), model.String("/var/log")).String() {
+	if root.Name != "/" || root.Attrs["mounts"].String() != sdk.List(sdk.String("/"), sdk.String("/home"), sdk.String("/var/log")).String() {
 		t.Errorf("root filesystem = %+v", root)
 	}
-	if st := m.world.ents[ref(KindFilesystem, "sdz1")].Status.Level; st != model.StatusUnknown {
+	if st := m.world.ents[ref(KindFilesystem, "sdz1")].Status.Level; st != sdk.StatusUnknown {
 		t.Errorf("unreadable filesystem status = %v", st)
 	}
-	if st := m.world.ents[ref(model.KindInterface, "eth0")].Status; st.Level != model.StatusDown || st.Reason != "link down" {
+	if st := m.world.ents[ref(sdk.KindInterface, "eth0")].Status; st.Level != sdk.StatusDown || st.Reason != "link down" {
 		t.Errorf("eth0 status = %+v", st)
 	}
-	bash := m.world.ents[ref(model.KindProcess, "1201")]
+	bash := m.world.ents[ref(sdk.KindProcess, "1201")]
 	if bash.Name != "bash" || bash.Attrs["user"].Str() != "alice" || bash.Attrs["command"].Str() != "-bash" ||
 		!bash.Attrs["started"].Time().Equal(time.Unix(1790302804+50, 100_000_000)) {
 		t.Errorf("bash = %+v", bash)
@@ -124,13 +122,13 @@ func TestAttributesAndStatus(t *testing.T) {
 func TestEdges(t *testing.T) {
 	m := testModule(t, copyFixture(t), "")
 	m.poll(context.Background(), time.Unix(1000, 0))
-	host := ref(model.KindHost, "testbox")
-	for _, e := range []model.Edge{
-		{From: ref(KindFilesystem, "dm-0"), To: ref(model.KindDisk, "nvme0n1"), Rel: model.RelRunsOn},
-		{From: ref(KindFilesystem, "sdz1"), To: host, Rel: model.RelMemberOf},
-		{From: ref(model.KindProcess, "1200"), To: ref(model.KindProcess, "1201"), Rel: model.RelParentOf},
-		{From: ref(model.KindProcess, "1201"), To: host, Rel: model.RelRunsOn},
-		{From: ref(KindCPU, "cpu2"), To: host, Rel: model.RelMemberOf},
+	host := ref(sdk.KindHost, "testbox")
+	for _, e := range []sdk.Edge{
+		{From: ref(KindFilesystem, "dm-0"), To: ref(sdk.KindDisk, "nvme0n1"), Rel: sdk.RelRunsOn},
+		{From: ref(KindFilesystem, "sdz1"), To: host, Rel: sdk.RelMemberOf},
+		{From: ref(sdk.KindProcess, "1200"), To: ref(sdk.KindProcess, "1201"), Rel: sdk.RelParentOf},
+		{From: ref(sdk.KindProcess, "1201"), To: host, Rel: sdk.RelRunsOn},
+		{From: ref(KindCPU, "cpu2"), To: host, Rel: sdk.RelMemberOf},
 	} {
 		if _, ok := m.world.edges[e.Key()]; !ok {
 			t.Errorf("missing edge %s -%s-> %s", e.From, e.Rel, e.To)
@@ -141,7 +139,7 @@ func TestEdges(t *testing.T) {
 func TestCommandsCanBeHidden(t *testing.T) {
 	m := testModule(t, copyFixture(t), "commands: false")
 	m.poll(context.Background(), time.Unix(1000, 0))
-	if _, ok := m.world.ents[ref(model.KindProcess, "1201")].Attrs["command"]; ok {
+	if _, ok := m.world.ents[ref(sdk.KindProcess, "1201")].Attrs["command"]; ok {
 		t.Error("command shown with commands: false")
 	}
 }
@@ -163,11 +161,11 @@ func rewrite(t *testing.T, root, name, old, replacement string) {
 	}
 }
 
-func latest(t *testing.T, m *Module, r model.EntityRef, metric string) float64 {
+func latest(t *testing.T, m *Module, r sdk.EntityRef, metric string) float64 {
 	t.Helper()
-	ss, err := m.QuerySeries(context.Background(), data.SeriesQuery{
-		Entities: []model.EntityRef{r}, Metrics: []string{metric},
-		Window: data.TimeWindow{From: time.Unix(0, 0), To: time.Unix(1e6, 0)},
+	ss, err := m.QuerySeries(context.Background(), sdk.SeriesQuery{
+		Entities: []sdk.EntityRef{r}, Metrics: []string{metric},
+		Window: sdk.TimeWindow{From: time.Unix(0, 0), To: time.Unix(1e6, 0)},
 	})
 	if err != nil || len(ss) != 1 || len(ss[0].Points) == 0 {
 		t.Fatalf("%s %s: %+v, %v", r, metric, ss, err)
@@ -190,19 +188,19 @@ func TestRatesBetweenPolls(t *testing.T) {
 	rewrite(t, root, "proc/net/dev", "wlan0: 4926113947", "wlan0: 4926115947")
 	m.poll(context.Background(), time.Unix(1002, 0))
 	for _, c := range []struct {
-		r      model.EntityRef
+		r      sdk.EntityRef
 		metric string
 		want   float64
 	}{
-		{ref(model.KindHost, "testbox"), MetricCPU, 25},
+		{ref(sdk.KindHost, "testbox"), MetricCPU, 25},
 		{ref(KindCPU, "cpu0"), MetricCPU, 100},
 		{ref(KindCPU, "cpu1"), MetricCPU, 0},
-		{ref(model.KindProcess, "1201"), MetricCPU, 5}, // 40 ticks of 800
-		{ref(model.KindDisk, "nvme0n1"), MetricDiskRead, 4096 * 512 / 2},
-		{ref(model.KindInterface, "wlan0"), MetricNetReceive, 1000},
+		{ref(sdk.KindProcess, "1201"), MetricCPU, 5}, // 40 ticks of 800
+		{ref(sdk.KindDisk, "nvme0n1"), MetricDiskRead, 4096 * 512 / 2},
+		{ref(sdk.KindInterface, "wlan0"), MetricNetReceive, 1000},
 		{ref(KindMemory, "memory"), MetricMemUtil, 50},
 		{ref(KindFilesystem, "dm-0"), MetricFSUtil, 40},
-		{ref(model.KindProcess, "1201"), MetricRSS, float64(1000 * os.Getpagesize())},
+		{ref(sdk.KindProcess, "1201"), MetricRSS, float64(1000 * os.Getpagesize())},
 	} {
 		if got := latest(t, m, c.r, c.metric); math.Abs(got-c.want) > 1e-9 {
 			t.Errorf("%s %s = %v; want %v", c.r.Native(), c.metric, got, c.want)
@@ -225,13 +223,13 @@ func TestDeltasSendOnlyChanges(t *testing.T) {
 	fakeUsage["."] = fsUsage{total: 100, used: 92, avail: 8}
 	t.Cleanup(func() { delete(fakeUsage, ".") })
 	cs := m.poll(context.Background(), time.Unix(1004, 0))
-	if !slices.Equal(cs.Removes, []model.EntityRef{ref(model.KindProcess, "1201")}) {
+	if !slices.Equal(cs.Removes, []sdk.EntityRef{ref(sdk.KindProcess, "1201")}) {
 		t.Errorf("removes = %v; want bash", cs.Removes)
 	}
-	if len(cs.Upserts) != 1 || cs.Upserts[0].Status.Level != model.StatusWarn {
+	if len(cs.Upserts) != 1 || cs.Upserts[0].Status.Level != sdk.StatusWarn {
 		t.Errorf("upserts = %+v; want the root filesystem nearly full", cs.Upserts)
 	}
-	if _, ok := m.series[data.SeriesRef{Entity: ref(model.KindProcess, "1201"), Metric: MetricRSS}]; ok {
+	if _, ok := m.series[sdk.SeriesRef{Entity: ref(sdk.KindProcess, "1201"), Metric: MetricRSS}]; ok {
 		t.Error("an exited process kept its series")
 	}
 }
@@ -256,7 +254,7 @@ func TestProcessesCanBeLeftOut(t *testing.T) {
 	m := testModule(t, copyFixture(t), "processes: false")
 	m.poll(context.Background(), time.Unix(1000, 0))
 	for _, e := range m.world.ents {
-		if e.Kind == model.KindProcess {
+		if e.Kind == sdk.KindProcess {
 			t.Fatalf("process %s listed with processes: false", e.Name)
 		}
 	}
@@ -269,7 +267,7 @@ func TestBadOptions(t *testing.T) {
 	} {
 		var n yaml.Node
 		_ = yaml.Unmarshal([]byte(opts), &n)
-		if err := New().Configure(context.Background(), module.Config{Name: "local", Options: *n.Content[0]}); err == nil {
+		if err := New().Configure(context.Background(), sdk.Config{Name: "local", Options: *n.Content[0]}); err == nil {
 			t.Errorf("Configure(%q) succeeded", opts)
 		}
 	}

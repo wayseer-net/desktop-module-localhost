@@ -2,7 +2,7 @@ package localhost
 
 import (
 	"bytes"
-	"mindseye/internal/model"
+	"mindseye/pkg/sdk"
 	"os"
 	"slices"
 	"strings"
@@ -74,9 +74,9 @@ func TestLongJournalMessagesAreCut(t *testing.T) {
 }
 
 func TestSeverityFromPriority(t *testing.T) {
-	want := []model.Severity{
-		model.SevCritical, model.SevCritical, model.SevCritical, model.SevError,
-		model.SevWarn, model.SevInfo, model.SevInfo, model.SevDebug,
+	want := []sdk.Severity{
+		sdk.SevCritical, sdk.SevCritical, sdk.SevCritical, sdk.SevError,
+		sdk.SevWarn, sdk.SevInfo, sdk.SevInfo, sdk.SevDebug,
 	}
 	for p, w := range want {
 		if got := severityOf(p); got != w {

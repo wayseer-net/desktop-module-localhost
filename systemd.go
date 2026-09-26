@@ -5,7 +5,7 @@ import (
 	"errors"
 	"io"
 	"maps"
-	"mindseye/internal/model"
+	"mindseye/pkg/sdk"
 	"slices"
 	"strings"
 	"time"
@@ -14,7 +14,7 @@ import (
 )
 
 // KindUnit is a systemd unit other than a service: a timer, socket, target, path, mount...
-const KindUnit model.Kind = "localhost/unit"
+const KindUnit sdk.Kind = "localhost/unit"
 
 // unitRetry is how long to wait before reconnecting to systemd after a failure.
 const unitRetry = 30 * time.Second
@@ -289,33 +289,33 @@ func (w *unitWatcher) stopSeen(name string, at time.Time) {
 }
 
 // unitKind is a service for .service units and KindUnit for the rest, with the unit type.
-func unitKind(name string) (model.Kind, string) {
+func unitKind(name string) (sdk.Kind, string) {
 	typ := name[strings.LastIndexByte(name, '.')+1:]
 	if typ == "service" {
-		return model.KindService, typ
+		return sdk.KindService, typ
 	}
 	return KindUnit, typ
 }
 
 // unitStatus maps systemd's active state to a status.
-func unitStatus(active string) model.Status {
+func unitStatus(active string) sdk.Status {
 	switch active {
 	case "active":
 		return okStatus
 	case "failed":
-		return model.Status{Level: model.StatusCrit, Reason: "failed"}
+		return sdk.Status{Level: sdk.StatusCrit, Reason: "failed"}
 	case "activating":
-		return model.Status{Level: model.StatusWarn, Reason: "starting"}
+		return sdk.Status{Level: sdk.StatusWarn, Reason: "starting"}
 	case "deactivating":
-		return model.Status{Level: model.StatusWarn, Reason: "stopping"}
+		return sdk.Status{Level: sdk.StatusWarn, Reason: "stopping"}
 	case "reloading", "refreshing":
-		return model.Status{Level: model.StatusWarn, Reason: active}
+		return sdk.Status{Level: sdk.StatusWarn, Reason: active}
 	case "maintenance":
-		return model.Status{Level: model.StatusWarn, Reason: "in maintenance"}
+		return sdk.Status{Level: sdk.StatusWarn, Reason: "in maintenance"}
 	case "inactive":
-		return model.Status{Level: model.StatusUnknown, Reason: "stopped"}
+		return sdk.Status{Level: sdk.StatusUnknown, Reason: "stopped"}
 	}
-	return model.Status{Level: model.StatusUnknown}
+	return sdk.Status{Level: sdk.StatusUnknown}
 }
 
 // parseCgroup returns a process's systemd cgroup path from /proc/<pid>/cgroup: the
