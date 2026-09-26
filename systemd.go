@@ -67,23 +67,39 @@ type cachedDeps struct {
 	deps   unitDeps
 }
 
-// unitWatcher lists systemd units, keeping the last good listing across failures.
+// unitWatcher lists systemd units, keeping the last good listing across failures and units
+// that stopped for keep after they did.
 type unitWatcher struct {
-	sys    system // nil when units are not read
-	types  []string
-	src    unitSource
-	deps   map[string]cachedDeps
-	last   []unit
-	note   string
-	retry  time.Time
-	absent bool // no systemd on this machine; not retried
+	sys     system // nil when units are not read
+	types   []string
+	keep    time.Duration
+	src     unitSource
+	deps    map[string]cachedDeps
+	seen    map[string]*seenUnit // units listed this run
+	changes []unitChange         // since last taken
+	last    []unit
+	note    string
+	retry   time.Time
+	absent  bool // no systemd on this machine; not retried
 }
 
-func newUnitWatcher(sys system, types []string) unitWatcher {
+// seenUnit is a unit as last listed, and when it stopped if it has.
+type seenUnit struct {
+	unit
+	stopped time.Time
+}
+
+// unitChange is a listed unit moving from one active state to another.
+type unitChange struct {
+	name, from, to string
+	at             time.Time
+}
+
+func newUnitWatcher(sys system, types []string, keep time.Duration) unitWatcher {
 	if len(types) == 0 {
 		sys = nil
 	}
-	return unitWatcher{sys: sys, types: types, deps: map[string]cachedDeps{}}
+	return unitWatcher{sys: sys, types: types, keep: keep, deps: map[string]cachedDeps{}, seen: map[string]*seenUnit{}}
 }
 
 // read lists the wanted units, connecting first if need be.
@@ -108,6 +124,7 @@ func (w *unitWatcher) read(ctx context.Context, now time.Time) []unit {
 		}
 		out = append(out, unit{u, d})
 	}
+	out = w.remember(out, now)
 	maps.DeleteFunc(w.deps, func(name string, _ cachedDeps) bool {
 		return !slices.ContainsFunc(out, func(u unit) bool { return u.Name == name })
 	})
@@ -147,6 +164,47 @@ func (w *unitWatcher) close() {
 		w.src.close()
 		w.src = nil
 	}
+}
+
+// remember notes each listed unit's state changes, and adds the units that have stopped
+// since they were listed, until keep has passed.
+func (w *unitWatcher) remember(listed []unit, now time.Time) []unit {
+	for _, u := range listed {
+		if s, ok := w.seen[u.Name]; ok {
+			w.changed(u.Name, s.ActiveState, u.ActiveState, now)
+		}
+		w.seen[u.Name] = &seenUnit{unit: u}
+	}
+	names := slices.Sorted(maps.Keys(w.seen))
+	for _, name := range names {
+		s := w.seen[name]
+		if slices.ContainsFunc(listed, func(u unit) bool { return u.Name == name }) {
+			continue
+		}
+		if s.stopped.IsZero() {
+			w.changed(name, s.ActiveState, "inactive", now)
+			s.stopped, s.ActiveState, s.SubState = now, "inactive", "dead"
+		}
+		if now.Sub(s.stopped) >= w.keep {
+			delete(w.seen, name)
+			continue
+		}
+		listed = append(listed, s.unit)
+	}
+	return listed
+}
+
+func (w *unitWatcher) changed(name, from, to string, now time.Time) {
+	if from != to {
+		w.changes = append(w.changes, unitChange{name, from, to, now})
+	}
+}
+
+// takeChanges returns the state changes seen since it was last called.
+func (w *unitWatcher) takeChanges() []unitChange {
+	c := w.changes
+	w.changes = nil
+	return c
 }
 
 // wanted keeps loaded units of the configured types that are not simply stopped.
@@ -192,6 +250,8 @@ func unitStatus(active string) model.Status {
 		return model.Status{Level: model.StatusWarn, Reason: active}
 	case "maintenance":
 		return model.Status{Level: model.StatusWarn, Reason: "in maintenance"}
+	case "inactive":
+		return model.Status{Level: model.StatusUnknown, Reason: "stopped"}
 	}
 	return model.Status{Level: model.StatusUnknown}
 }

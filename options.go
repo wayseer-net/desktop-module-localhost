@@ -18,6 +18,7 @@ type options struct {
 	Units          []string      `yaml:"units"`           // systemd unit types listed; [] for none
 	Journal        string        `yaml:"journal"`         // least severe journal priority sent, or off
 	JournalBacklog int           `yaml:"journal_backlog"` // journal entries sent from before the start
+	KeepStopped    time.Duration `yaml:"keep_stopped"`    // how long a unit that stopped stays listed
 
 	priority int // Journal parsed; -1 when off
 }
@@ -28,6 +29,7 @@ func defaults() options {
 	return options{
 		Interval: 2 * time.Second, History: time.Hour, Processes: true, ProcessHistory: 5 * time.Minute, Commands: true, Root: "/",
 		Units: []string{"service", "socket", "timer", "target", "path"}, Journal: "warning", JournalBacklog: 100,
+		KeepStopped: time.Hour,
 	}
 }
 
@@ -43,6 +45,8 @@ func (o *options) validate() error {
 		return fmt.Errorf("root %q must be an absolute path", o.Root)
 	case o.JournalBacklog < 0 || o.JournalBacklog > 1000:
 		return fmt.Errorf("journal_backlog %d must be between 0 and 1000", o.JournalBacklog)
+	case o.KeepStopped < 0 || o.KeepStopped > 24*time.Hour:
+		return fmt.Errorf("keep_stopped %v must be between 0 and 24h", o.KeepStopped)
 	}
 	for _, t := range o.Units {
 		if !slices.Contains(unitTypes, t) {

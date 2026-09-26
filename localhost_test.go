@@ -265,7 +265,7 @@ func TestProcessesCanBeLeftOut(t *testing.T) {
 func TestBadOptions(t *testing.T) {
 	for _, opts := range []string{
 		"interval: 10ms", "history: 5s", "process_history: 2h", "root: relative/path", "interval: soon",
-		"units: [widget]", "journal: loud", "journal_backlog: 5000",
+		"units: [widget]", "journal: loud", "journal_backlog: 5000", "keep_stopped: -1s", "keep_stopped: 25h",
 	} {
 		var n yaml.Node
 		_ = yaml.Unmarshal([]byte(opts), &n)

@@ -135,6 +135,41 @@ func (m *Module) logged(entries []journalEntry) *model.ChangeSet {
 	return &model.ChangeSet{Events: evs}
 }
 
+// stateEvents are events on units for their changes of active state.
+func (m *Module) stateEvents(changes []unitChange) []model.Event {
+	var evs []model.Event
+	for _, c := range changes {
+		sev := model.SevInfo
+		if c.to == "failed" {
+			sev = model.SevError
+		}
+		b := builder{src: m.name}
+		evs = append(evs, model.Event{
+			ID: "state;" + c.name + ";" + strconv.FormatInt(c.at.UnixNano(), 10), Entity: b.unitRef(c.name),
+			At: c.at, Severity: sev, Kind: "state", Message: stateMessage(c.from, c.to), Source: m.name,
+			Fields: map[string]model.Value{"unit": model.String(c.name), "from": model.String(c.from), "to": model.String(c.to)},
+		})
+	}
+	return evs
+}
+
+// stateMessage names a change of active state the way people say it.
+func stateMessage(from, to string) string {
+	switch {
+	case to == "active" && (from == "reloading" || from == "refreshing"):
+		return "reloaded"
+	case to == "active":
+		return "started"
+	case to == "inactive":
+		return "stopped"
+	case to == "activating":
+		return "starting"
+	case to == "deactivating":
+		return "stopping"
+	}
+	return to
+}
+
 // eventEntity is the entry's unit if listed, else its process if listed, else the host.
 func (m *Module) eventEntity(e journalEntry) model.EntityRef {
 	b := builder{src: m.name, w: m.world}

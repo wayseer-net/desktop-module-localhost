@@ -12,7 +12,7 @@ func TestLiveSystemd(t *testing.T) {
 	if _, err := os.Stat("/run/systemd/system"); err != nil || !supported {
 		t.Skip("not booted with systemd")
 	}
-	w := newUnitWatcher(liveSystem{}, defaults().Units)
+	w := newUnitWatcher(liveSystem{}, defaults().Units, time.Hour)
 	defer w.close()
 	us := w.read(t.Context(), time.Now())
 	if w.note != "" || len(us) == 0 {

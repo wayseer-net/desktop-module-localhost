@@ -82,7 +82,7 @@ func (m *Module) Configure(_ context.Context, cfg module.Config) error {
 		procs: o.Processes, cmds: o.Commands, details: map[procKey]procDetail{},
 	}
 	m.units.close()
-	m.units, m.journal = newUnitWatcher(sys, o.Units), sys
+	m.units, m.journal = newUnitWatcher(sys, o.Units, o.KeepStopped), sys
 	if o.priority < 0 {
 		m.journal = nil
 	}
@@ -154,7 +154,10 @@ func (m *Module) poll(ctx context.Context, now time.Time) *model.ChangeSet {
 		m.last = s
 	}
 	m.health.Store(&data.Health{Err: err, Note: m.note()})
-	return m.tracker.Changes(m.world.ents, m.world.edges, now)
+	cs := m.tracker.Changes(m.world.ents, m.world.edges, now)
+	cs.Events = m.stateEvents(m.units.takeChanges())
+	m.events.Add(cs.Events...)
+	return cs
 }
 
 // note joins what limits the view without being an error: systemd or the journal missing.
