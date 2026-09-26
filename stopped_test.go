@@ -22,6 +22,11 @@ func (f *fakeSystem) drop(name string) {
 	f.list = slices.DeleteFunc(f.list, func(u unitReply) bool { return u.Name == name })
 }
 
+// askStop notes systemd's journal line for a stop of sshd, as `systemctl stop` writes it.
+func askStop(m *Module, sec int64) {
+	m.units.jobLogged(journalEntry{object: "sshd.service", jobType: "stop", at: time.Unix(sec, 0)})
+}
+
 func wantStateEvent(t *testing.T, evs []model.Event, msg, from, to string, sev model.Severity) {
 	t.Helper()
 	if len(evs) != 1 {
@@ -40,8 +45,9 @@ func TestStoppedUnitStaysListedAsStopped(t *testing.T) {
 	if evs := pollAt(m, 1000); len(evs) != 0 {
 		t.Errorf("the first listing sent events %+v", evs)
 	}
+	askStop(m, 1001)
 	f.setState("sshd.service", "inactive", "dead")
-	wantStateEvent(t, pollAt(m, 1002), "stopped", "active", "inactive", model.SevInfo)
+	wantStateEvent(t, pollAt(m, 1002), "stopped by request", "active", "inactive", model.SevInfo)
 	e, ok := m.world.ents[sshd]
 	if !ok {
 		t.Fatal("a stopped unit left the world")
@@ -61,8 +67,9 @@ func TestUnitGoneFromTheListingIsKeptAsStopped(t *testing.T) {
 	f := newFakeSystem(t)
 	m := systemModule(t, f, "")
 	pollAt(m, 1000)
+	askStop(m, 1001)
 	f.drop("sshd.service")
-	wantStateEvent(t, pollAt(m, 1002), "stopped", "active", "inactive", model.SevInfo)
+	wantStateEvent(t, pollAt(m, 1002), "stopped by request", "active", "inactive", model.SevInfo)
 	if e := m.world.ents[sshd]; e.Status.Reason != "stopped" {
 		t.Errorf("sshd = %+v, want kept as stopped", e)
 	}
@@ -72,6 +79,7 @@ func TestStoppedUnitIsDroppedAfterKeepStopped(t *testing.T) {
 	f := newFakeSystem(t)
 	m := systemModule(t, f, "keep_stopped: 10s")
 	pollAt(m, 1000)
+	askStop(m, 1001)
 	f.setState("sshd.service", "inactive", "dead")
 	pollAt(m, 1002)
 	pollAt(m, 1011)
@@ -90,8 +98,9 @@ func TestKeepStoppedZeroKeepsNone(t *testing.T) {
 	f := newFakeSystem(t)
 	m := systemModule(t, f, "keep_stopped: 0s")
 	pollAt(m, 1000)
+	askStop(m, 1001)
 	f.setState("sshd.service", "inactive", "dead")
-	wantStateEvent(t, pollAt(m, 1002), "stopped", "active", "inactive", model.SevInfo)
+	wantStateEvent(t, pollAt(m, 1002), "stopped by request", "active", "inactive", model.SevInfo)
 	if _, ok := m.world.ents[sshd]; ok {
 		t.Error("a stopped unit listed with keep_stopped: 0s")
 	}
@@ -101,6 +110,7 @@ func TestRestartedUnitIsOneEntityWithItsHistory(t *testing.T) {
 	f := newFakeSystem(t)
 	m := systemModule(t, f, "")
 	pollAt(m, 1000)
+	askStop(m, 1001)
 	f.setState("sshd.service", "inactive", "dead")
 	pollAt(m, 1002)
 	f.setState("sshd.service", "active", "running")
@@ -123,6 +133,7 @@ func TestJournalEntriesAttachToAKeptUnit(t *testing.T) {
 	f := newFakeSystem(t)
 	m := systemModule(t, f, "")
 	pollAt(m, 1000)
+	askStop(m, 1001)
 	f.setState("sshd.service", "inactive", "dead")
 	pollAt(m, 1002)
 	cs := m.logged([]journalEntry{{cursor: "c1", unit: "sshd.service", message: "Received signal 15; terminating."}})

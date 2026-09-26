@@ -7,6 +7,7 @@ import (
 	"io"
 	"mindseye/internal/model"
 	"os"
+	"reflect"
 	"slices"
 	"sync"
 	"testing"
@@ -17,7 +18,7 @@ import (
 type fakeSystem struct {
 	mu          sync.Mutex
 	list        []unitReply
-	deps        map[string]unitDeps
+	props       map[string]map[string]any // D-Bus properties by unit, as godbus decodes them
 	depCalls    map[string]int
 	connectErr  error
 	unitsErr    error
@@ -27,7 +28,7 @@ type fakeSystem struct {
 
 func newFakeSystem(t *testing.T) *fakeSystem {
 	t.Helper()
-	f := &fakeSystem{deps: map[string]unitDeps{}, depCalls: map[string]int{}}
+	f := &fakeSystem{props: map[string]map[string]any{}, depCalls: map[string]int{}}
 	var reply struct{ Data [][][]any }
 	readJSON(t, "../../testdata/systemd/list-units.json", &reply)
 	for _, r := range reply.Data[0] {
@@ -36,12 +37,55 @@ func newFakeSystem(t *testing.T) *fakeSystem {
 			ActiveState: r[3].(string), SubState: r[4].(string),
 		})
 	}
-	var props map[string]map[string]struct{ Data []string }
+	var props map[string]map[string]busJSON
 	readJSON(t, "../../testdata/systemd/dependencies.json", &props)
 	for name, p := range props {
-		f.deps[name] = depsFrom(func(prop string) []string { return p[prop].Data })
+		f.setProps(t, name, p)
 	}
 	return f
+}
+
+// busJSON is a property as `busctl --json` prints it.
+type busJSON struct {
+	Type string          `json:"type"`
+	Data json.RawMessage `json:"data"`
+}
+
+// value decodes the property into the Go type godbus gives its signature.
+func (b busJSON) value(t *testing.T) any {
+	t.Helper()
+	var v any
+	switch b.Type {
+	case "s":
+		v = new(string)
+	case "as":
+		v = new([]string)
+	case "b":
+		v = new(bool)
+	case "t":
+		v = new(uint64)
+	case "i":
+		v = new(int32)
+	default:
+		t.Fatalf("no decoding for D-Bus type %q", b.Type)
+	}
+	if err := json.Unmarshal(b.Data, v); err != nil {
+		t.Fatal(err)
+	}
+	return reflect.ValueOf(v).Elem().Interface()
+}
+
+// setProps sets or replaces recorded properties of a unit.
+func (f *fakeSystem) setProps(t *testing.T, name string, props map[string]busJSON) {
+	t.Helper()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.props[name] == nil {
+		f.props[name] = map[string]any{}
+	}
+	for k, v := range props {
+		f.props[name][k] = v.value(t)
+	}
 }
 
 func readJSON(t *testing.T, path string, v any) {
@@ -63,11 +107,12 @@ func (f *fakeSystem) units(context.Context) ([]unitReply, error) {
 	return slices.Clone(f.list), f.unitsErr
 }
 
-func (f *fakeSystem) dependencies(_ context.Context, u unitReply) (unitDeps, error) {
+func (f *fakeSystem) details(_ context.Context, u unitReply) (unitProps, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.depCalls[u.Name]++
-	return f.deps[u.Name], nil
+	p := f.props[u.Name]
+	return propsFrom(func(name string) any { return p[name] }), nil
 }
 
 func (f *fakeSystem) close() {}
@@ -135,7 +180,7 @@ func TestUnitStatus(t *testing.T) {
 	m.poll(context.Background(), time.Unix(1000, 0))
 	for name, want := range map[string]model.Status{
 		"sshd.service":  {Level: model.StatusOK},
-		"cups.service":  {Level: model.StatusCrit, Reason: "failed"},
+		"cups.service":  {Level: model.StatusDown, Reason: "should be running"}, // multi-user.target wants it
 		"nginx.service": {Level: model.StatusWarn, Reason: "starting"},
 		"backup.timer":  {Level: model.StatusOK},
 	} {

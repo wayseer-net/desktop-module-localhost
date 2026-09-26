@@ -17,8 +17,10 @@ const messageCap = 2048
 type journalEntry struct {
 	cursor   string
 	at       time.Time
-	priority int // syslog: 0 emerg to 7 debug
-	unit     string
+	priority int    // syslog: 0 emerg to 7 debug
+	unit     string // the unit that logged it
+	object   string // the unit the service manager logged it about
+	jobType  string // the manager's job the line is about: start, stop...
 	ident    string
 	pid      int
 	message  string
@@ -34,7 +36,12 @@ type journalJSON struct {
 	Ident    json.RawMessage `json:"SYSLOG_IDENTIFIER"`
 	PID      json.RawMessage `json:"_PID"`
 	Message  json.RawMessage `json:"MESSAGE"`
+	Object   json.RawMessage `json:"UNIT"`     // set by the service manager, and by anyone else
+	JobType  json.RawMessage `json:"JOB_TYPE"` // likewise
 }
+
+// managerPID is the system's service manager; only its lines name the unit they are about.
+const managerPID = 1
 
 // parseJournalEntry reads one line of `journalctl -o json`.
 func parseJournalEntry(b []byte) (journalEntry, error) {
@@ -52,6 +59,9 @@ func parseJournalEntry(b []byte) (journalEntry, error) {
 		message: cut(strings.TrimRight(journalField(j.Message), " \t\r\n"), messageCap),
 	}
 	e.pid, _ = strconv.Atoi(journalField(j.PID))
+	if e.pid == managerPID {
+		e.object, e.jobType = journalField(j.Object), journalField(j.JobType)
+	}
 	if p, err := strconv.Atoi(j.Priority); err == nil && p >= 0 && p <= 7 {
 		e.priority = p
 	}
@@ -115,11 +125,20 @@ func parsePriority(s string) (int, error) {
 	return 0, fmt.Errorf("journal priority %q is not one of %s", s, strings.Join(priorityNames, ", "))
 }
 
-// journalArgs follows the journal from the backlog, or after the cursor when resuming.
+// journalArgs follows the journal from the backlog, or after the cursor when resuming. Below
+// info, the manager's job lines (info) are matched as well as entries up to the priority.
 func journalArgs(priority, backlog int, cursor string) []string {
-	args := []string{"--output=json", "--follow", "--all", "--no-pager", "--quiet", "--priority=" + strconv.Itoa(priority)}
+	args := []string{"--output=json", "--follow", "--all", "--no-pager", "--quiet"}
 	if cursor != "" {
-		return append(args, "--after-cursor="+cursor)
+		args = append(args, "--after-cursor="+cursor)
+	} else {
+		args = append(args, "--lines="+strconv.Itoa(backlog))
 	}
-	return append(args, "--lines="+strconv.Itoa(backlog))
+	if priority >= 6 {
+		return append(args, "--priority="+strconv.Itoa(priority))
+	}
+	for p := range priority + 1 {
+		args = append(args, "PRIORITY="+strconv.Itoa(p))
+	}
+	return append(args, "+", "_PID="+strconv.Itoa(managerPID), "JOB_TYPE=start", "JOB_TYPE=stop")
 }

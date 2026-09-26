@@ -87,8 +87,16 @@ func TestSeverityFromPriority(t *testing.T) {
 
 func TestJournalArgs(t *testing.T) {
 	first := journalArgs(4, 100, "")
-	if !slices.Contains(first, "--lines=100") || !slices.Contains(first, "--priority=4") || !slices.Contains(first, "--follow") {
+	if !slices.Contains(first, "--lines=100") || !slices.Contains(first, "--follow") {
 		t.Errorf("first start: %v", first)
+	}
+	// Below info, the manager's job lines are asked for besides entries up to the priority.
+	want := []string{"PRIORITY=0", "PRIORITY=1", "PRIORITY=2", "PRIORITY=3", "PRIORITY=4", "+", "_PID=1", "JOB_TYPE=start", "JOB_TYPE=stop"}
+	if got := first[len(first)-len(want):]; !slices.Equal(got, want) || slices.Contains(first, "--priority=4") {
+		t.Errorf("matches %v, want %v", first, want)
+	}
+	if info := journalArgs(6, 100, ""); !slices.Contains(info, "--priority=6") || slices.Contains(info, "+") {
+		t.Errorf("at info: %v; job lines are already sent", info)
 	}
 	again := journalArgs(4, 100, "s=abc")
 	if !slices.Contains(again, "--after-cursor=s=abc") || slices.Contains(again, "--lines=100") {

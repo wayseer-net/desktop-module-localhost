@@ -33,7 +33,7 @@ func waitForEvents(t *testing.T, s *moduletest.Sink, n int) []model.Event {
 }
 
 func TestJournalEntriesBecomeEvents(t *testing.T) {
-	_, sink := journalModule(t, newFakeSystem(t), "")
+	_, sink := journalModule(t, newFakeSystem(t), "journal: debug")
 	evs := waitForEvents(t, sink, 7)
 	want := []struct {
 		entity model.EntityRef
@@ -62,7 +62,7 @@ func TestJournalEntriesBecomeEvents(t *testing.T) {
 }
 
 func TestJournalEventsAreQueryable(t *testing.T) {
-	m, sink := journalModule(t, newFakeSystem(t), "")
+	m, sink := journalModule(t, newFakeSystem(t), "journal: debug")
 	waitForEvents(t, sink, 7)
 	got, err := m.QueryEvents(context.Background(), module.EventQuery{Entities: []model.EntityRef{unitRef("cups.service")}})
 	if err != nil || len(got) != 1 || got[0].Message != "Failed to start CUPS Scheduler." {
@@ -77,7 +77,7 @@ func TestJournalStartsFromTheBacklog(t *testing.T) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	args := f.journalRuns[0]
-	if !slices.Contains(args, "--priority=3") || !slices.Contains(args, "--lines=20") {
+	if !slices.Contains(args, "PRIORITY=3") || slices.Contains(args, "PRIORITY=4") || !slices.Contains(args, "--lines=20") {
 		t.Errorf("journalctl %v", args)
 	}
 }

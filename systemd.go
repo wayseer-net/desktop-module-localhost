@@ -31,7 +31,7 @@ type system interface {
 // unitSource is a connection to systemd's manager.
 type unitSource interface {
 	units(ctx context.Context) ([]unitReply, error)
-	dependencies(ctx context.Context, u unitReply) (unitDeps, error)
+	details(ctx context.Context, u unitReply) (unitProps, error)
 	close()
 }
 
@@ -56,15 +56,44 @@ func depsFrom(prop func(name string) []string) unitDeps {
 	}
 }
 
-type unit struct {
-	unitReply
-	deps unitDeps
+// unitProps are what localhost reads of a unit besides its listing.
+type unitProps struct {
+	deps        unitDeps
+	fileState   string    // UnitFileState: enabled, static, disabled, transient...
+	svcType     string    // a service's Type: simple, oneshot...
+	remain      bool      // a service's RemainAfterExit
+	result      string    // a service's Result: success, signal, exit-code...
+	triggeredBy []string  // the sockets, timers and paths that start it
+	activeSince time.Time // ActiveEnterTimestamp; zero if it never became active
 }
 
-// cachedDeps are a unit's dependencies as read while it was in one active state.
-type cachedDeps struct {
+// propsFrom reads the properties of org.freedesktop.systemd1.Unit and .Service, as godbus
+// decodes them; missing ones are left zero.
+func propsFrom(get func(name string) any) unitProps {
+	strs := func(name string) []string { ss, _ := get(name).([]string); return ss }
+	str := func(name string) string { s, _ := get(name).(string); return s }
+	p := unitProps{
+		deps: depsFrom(strs), fileState: str("UnitFileState"), svcType: str("Type"), result: str("Result"),
+		triggeredBy: strs("TriggeredBy"),
+	}
+	p.remain, _ = get("RemainAfterExit").(bool)
+	if us, _ := get("ActiveEnterTimestamp").(uint64); us > 0 {
+		p.activeSince = time.UnixMicro(int64(us))
+	}
+	return p
+}
+
+type unit struct {
+	unitReply
+	props unitProps
+	// Why a unit that is not running stopped, decided when it did.
+	stopAsked, wanted bool
+}
+
+// cachedProps are a unit's properties as read while it was in one active state.
+type cachedProps struct {
 	active string
-	deps   unitDeps
+	props  unitProps
 }
 
 // unitWatcher lists systemd units, keeping the last good listing across failures and units
@@ -74,8 +103,9 @@ type unitWatcher struct {
 	types   []string
 	keep    time.Duration
 	src     unitSource
-	deps    map[string]cachedDeps
+	props   map[string]cachedProps
 	seen    map[string]*seenUnit // units listed this run
+	stops   map[string]time.Time // when a stop job was seen for a unit, until it starts again
 	changes []unitChange         // since last taken
 	last    []unit
 	note    string
@@ -93,13 +123,17 @@ type seenUnit struct {
 type unitChange struct {
 	name, from, to string
 	at             time.Time
+	unit           unit // as it was after the change
 }
 
 func newUnitWatcher(sys system, types []string, keep time.Duration) unitWatcher {
 	if len(types) == 0 {
 		sys = nil
 	}
-	return unitWatcher{sys: sys, types: types, keep: keep, deps: map[string]cachedDeps{}, seen: map[string]*seenUnit{}}
+	return unitWatcher{
+		sys: sys, types: types, keep: keep,
+		props: map[string]cachedProps{}, seen: map[string]*seenUnit{}, stops: map[string]time.Time{},
+	}
 }
 
 // read lists the wanted units, connecting first if need be.
@@ -117,17 +151,21 @@ func (w *unitWatcher) read(ctx context.Context, now time.Time) []unit {
 		if !w.wanted(u) {
 			continue
 		}
-		d, err := w.dependencies(ctx, u)
+		p, err := w.details(ctx, u)
 		if err != nil {
 			w.fail(err, now)
 			return w.last
 		}
-		out = append(out, unit{u, d})
+		if u.JobType == "stop" {
+			w.stopSeen(u.Name, now)
+		}
+		out = append(out, unit{unitReply: u, props: p})
 	}
-	out = w.remember(out, now)
-	maps.DeleteFunc(w.deps, func(name string, _ cachedDeps) bool {
+	out = w.remember(judge(out, w.stops), now)
+	maps.DeleteFunc(w.props, func(name string, _ cachedProps) bool {
 		return !slices.ContainsFunc(out, func(u unit) bool { return u.Name == name })
 	})
+	maps.DeleteFunc(w.stops, func(name string, _ time.Time) bool { return w.seen[name] == nil })
 	w.last, w.note = out, ""
 	return out
 }
@@ -171,7 +209,7 @@ func (w *unitWatcher) close() {
 func (w *unitWatcher) remember(listed []unit, now time.Time) []unit {
 	for _, u := range listed {
 		if s, ok := w.seen[u.Name]; ok {
-			w.changed(u.Name, s.ActiveState, u.ActiveState, now)
+			w.changed(u, s.ActiveState, now)
 		}
 		w.seen[u.Name] = &seenUnit{unit: u}
 	}
@@ -182,8 +220,10 @@ func (w *unitWatcher) remember(listed []unit, now time.Time) []unit {
 			continue
 		}
 		if s.stopped.IsZero() {
-			w.changed(name, s.ActiveState, "inactive", now)
+			from := s.ActiveState
 			s.stopped, s.ActiveState, s.SubState = now, "inactive", "dead"
+			s.unit = judged(s.unit, listed, w.stops)
+			w.changed(s.unit, from, now)
 		}
 		if now.Sub(s.stopped) >= w.keep {
 			delete(w.seen, name)
@@ -194,9 +234,13 @@ func (w *unitWatcher) remember(listed []unit, now time.Time) []unit {
 	return listed
 }
 
-func (w *unitWatcher) changed(name, from, to string, now time.Time) {
-	if from != to {
-		w.changes = append(w.changes, unitChange{name, from, to, now})
+func (w *unitWatcher) changed(u unit, from string, now time.Time) {
+	if from == u.ActiveState {
+		return
+	}
+	w.changes = append(w.changes, unitChange{u.Name, from, u.ActiveState, now, u})
+	if u.ActiveState == "active" {
+		delete(w.stops, u.Name)
 	}
 }
 
@@ -213,17 +257,35 @@ func (w *unitWatcher) wanted(u unitReply) bool {
 	return u.LoadState == "loaded" && u.ActiveState != "inactive" && slices.Contains(w.types, typ)
 }
 
-// dependencies are reread when a unit changes state, as a restart may follow a reload.
-func (w *unitWatcher) dependencies(ctx context.Context, u unitReply) (unitDeps, error) {
-	if c, ok := w.deps[u.Name]; ok && c.active == u.ActiveState {
-		return c.deps, nil
+// details are reread when a unit changes state, as a restart may follow a reload.
+func (w *unitWatcher) details(ctx context.Context, u unitReply) (unitProps, error) {
+	if c, ok := w.props[u.Name]; ok && c.active == u.ActiveState {
+		return c.props, nil
 	}
-	d, err := w.src.dependencies(ctx, u)
+	p, err := w.src.details(ctx, u)
 	if err != nil {
-		return unitDeps{}, err
+		return unitProps{}, err
 	}
-	w.deps[u.Name] = cachedDeps{u.ActiveState, d}
-	return d, nil
+	w.props[u.Name] = cachedProps{u.ActiveState, p}
+	return p, nil
+}
+
+// jobLogged notes the service manager's journal line about a job: a stop asked for, or a start
+// that ends one.
+func (w *unitWatcher) jobLogged(e journalEntry) {
+	switch {
+	case e.object == "":
+	case e.jobType == "stop":
+		w.stopSeen(e.object, e.at)
+	case e.jobType == "start":
+		delete(w.stops, e.object)
+	}
+}
+
+func (w *unitWatcher) stopSeen(name string, at time.Time) {
+	if _, ok := w.stops[name]; !ok {
+		w.stops[name] = at
+	}
 }
 
 // unitKind is a service for .service units and KindUnit for the rest, with the unit type.

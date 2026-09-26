@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"strings"
@@ -19,6 +20,7 @@ const (
 	systemdDest    = "org.freedesktop.systemd1"
 	systemdManager = "org.freedesktop.systemd1.Manager"
 	systemdUnit    = "org.freedesktop.systemd1.Unit"
+	systemdService = "org.freedesktop.systemd1.Service"
 )
 
 // liveSystem is systemd over the system bus and journalctl on this machine.
@@ -46,17 +48,23 @@ func (b *busUnits) units(ctx context.Context) ([]unitReply, error) {
 	return out, err
 }
 
-func (b *busUnits) dependencies(ctx context.Context, u unitReply) (unitDeps, error) {
-	var props map[string]dbus.Variant
-	err := b.conn.Object(systemdDest, u.Path).
-		CallWithContext(ctx, "org.freedesktop.DBus.Properties.GetAll", 0, systemdUnit).Store(&props)
-	if err != nil {
-		return unitDeps{}, fmt.Errorf("%s: %w", u.Name, err)
+// details reads the Unit properties, and a service's Service properties.
+func (b *busUnits) details(ctx context.Context, u unitReply) (unitProps, error) {
+	ifaces := []string{systemdUnit}
+	if _, typ := unitKind(u.Name); typ == "service" {
+		ifaces = append(ifaces, systemdService)
 	}
-	return depsFrom(func(name string) []string {
-		ss, _ := props[name].Value().([]string)
-		return ss
-	}), nil
+	props := map[string]dbus.Variant{}
+	for _, iface := range ifaces {
+		var some map[string]dbus.Variant
+		err := b.conn.Object(systemdDest, u.Path).
+			CallWithContext(ctx, "org.freedesktop.DBus.Properties.GetAll", 0, iface).Store(&some)
+		if err != nil {
+			return unitProps{}, fmt.Errorf("%s: %w", u.Name, err)
+		}
+		maps.Copy(props, some)
+	}
+	return propsFrom(func(name string) any { return props[name].Value() }), nil
 }
 
 func (b *busUnits) close() { _ = b.conn.Close() }

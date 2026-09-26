@@ -73,18 +73,19 @@ func (b *builder) units(us []unit) {
 	for _, u := range us {
 		kind, typ := unitKind(u.Name)
 		name := strings.TrimSuffix(u.Name, ".service")
-		r := b.add(kind, u.Name, name, unitStatus(u.ActiveState), pruned(map[string]model.Value{
+		r := b.add(kind, u.Name, name, u.status(), pruned(map[string]model.Value{
 			"unit": model.String(u.Name), "type": model.String(typ), "description": model.String(u.Description),
 			"state": model.String(u.ActiveState), "sub_state": model.String(u.SubState),
+			"file_state": model.String(u.props.fileState), "result": model.String(u.props.result),
 		}))
 		b.link(r, b.w.host, model.RelRunsOn)
 	}
 	for _, u := range us {
 		from := b.unitRef(u.Name)
-		for _, d := range u.deps.hard {
+		for _, d := range u.props.deps.hard {
 			b.linkListed(from, b.unitRef(d), model.RelDependsOn, 1)
 		}
-		for _, d := range u.deps.soft {
+		for _, d := range u.props.deps.soft {
 			b.linkListed(from, b.unitRef(d), model.RelDependsOn, 0.5)
 		}
 	}

@@ -113,13 +113,18 @@ func drain(first journalEntry, in <-chan journalEntry) []journalEntry {
 	return out
 }
 
-// logged turns journal entries into events, kept for queries and returned to send.
+// logged turns journal entries into events, kept for queries and returned to send. The service
+// manager's job lines are read for stops asked for; below the chosen priority they are not sent.
 func (m *Module) logged(entries []journalEntry) *model.ChangeSet {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	evs := make([]model.Event, len(entries))
-	for i, e := range entries {
-		evs[i] = model.Event{
+	var evs []model.Event
+	for _, e := range entries {
+		m.units.jobLogged(e)
+		if e.priority > m.opts.priority {
+			continue
+		}
+		ev := model.Event{
 			ID: e.cursor, Entity: m.eventEntity(e), At: e.at, Severity: severityOf(e.priority),
 			Kind: "log", Message: e.message, Source: m.name,
 			Fields: pruned(map[string]model.Value{
@@ -128,8 +133,9 @@ func (m *Module) logged(entries []journalEntry) *model.ChangeSet {
 			}),
 		}
 		if e.pid > 0 {
-			evs[i].Fields["pid"] = num(e.pid)
+			ev.Fields["pid"] = num(e.pid)
 		}
+		evs = append(evs, ev)
 	}
 	m.events.Add(evs...)
 	return &model.ChangeSet{Events: evs}
@@ -139,14 +145,17 @@ func (m *Module) logged(entries []journalEntry) *model.ChangeSet {
 func (m *Module) stateEvents(changes []unitChange) []model.Event {
 	var evs []model.Event
 	for _, c := range changes {
-		sev := model.SevInfo
-		if c.to == "failed" {
+		sev, msg := model.SevInfo, stateMessage(c.from, c.to)
+		if c.to == "inactive" {
+			msg = c.unit.endMessage()
+		}
+		if c.to == "failed" || c.unit.wanted && c.to == "inactive" {
 			sev = model.SevError
 		}
 		b := builder{src: m.name}
 		evs = append(evs, model.Event{
 			ID: "state;" + c.name + ";" + strconv.FormatInt(c.at.UnixNano(), 10), Entity: b.unitRef(c.name),
-			At: c.at, Severity: sev, Kind: "state", Message: stateMessage(c.from, c.to), Source: m.name,
+			At: c.at, Severity: sev, Kind: "state", Message: msg, Source: m.name,
 			Fields: map[string]model.Value{"unit": model.String(c.name), "from": model.String(c.from), "to": model.String(c.to)},
 		})
 	}
@@ -170,11 +179,15 @@ func stateMessage(from, to string) string {
 	return to
 }
 
-// eventEntity is the entry's unit if listed, else its process if listed, else the host.
+// eventEntity is the unit the entry is about or from if listed, else its process if listed,
+// else the host.
 func (m *Module) eventEntity(e journalEntry) model.EntityRef {
 	b := builder{src: m.name, w: m.world}
-	if e.unit != "" {
-		if r := b.unitRef(e.unit); b.listed(r) {
+	for _, u := range []string{e.object, e.unit} {
+		if u == "" {
+			continue
+		}
+		if r := b.unitRef(u); b.listed(r) {
 			return r
 		}
 	}
