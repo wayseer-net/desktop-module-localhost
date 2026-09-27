@@ -9,16 +9,16 @@ import (
 )
 
 type options struct {
-	Interval       time.Duration `yaml:"interval"`        // polling period
-	History        time.Duration `yaml:"history"`         // how far back machine series are kept
-	Processes      bool          `yaml:"processes"`       // list processes as entities
-	ProcessHistory time.Duration `yaml:"process_history"` // how far back per-process series are kept
-	Commands       bool          `yaml:"commands"`        // show command lines, which can hold secrets
-	Root           string        `yaml:"root"`            // where proc, sys and etc are found
-	Units          []string      `yaml:"units"`           // systemd unit types listed; [] for none
-	Journal        string        `yaml:"journal"`         // least severe journal priority sent, or off
-	JournalBacklog int           `yaml:"journal_backlog"` // journal entries sent from before the start
-	KeepStopped    time.Duration `yaml:"keep_stopped"`    // how long a unit that stopped stays listed
+	Interval       time.Duration `yaml:"interval"`        // how often the machine is read; default 2s
+	History        time.Duration `yaml:"history"`         // how far back machine series are kept, 10 intervals to 24h; default 1h
+	Processes      bool          `yaml:"processes"`       // list processes as entities; default true
+	ProcessHistory time.Duration `yaml:"process_history"` // how far back per-process series are kept, up to history; default 5m
+	Commands       bool          `yaml:"commands"`        // show command lines, which can hold secrets; default true
+	Root           string        `yaml:"root"`            // where proc, sys and etc are found, such as a container's mount of the host; default /
+	Units          []string      `yaml:"units"`           // systemd unit types listed, [] for none; default service, socket, timer, target, path
+	Journal        string        `yaml:"journal"`         // least severe journal priority sent, emerg to debug, or off; default warning
+	JournalBacklog int           `yaml:"journal_backlog"` // journal entries sent from before the start, up to 1000; default 100
+	KeepStopped    time.Duration `yaml:"keep_stopped"`    // how long a unit that stopped stays listed, up to 24h; default 1h
 
 	priority int // Journal parsed; -1 when off
 }
