@@ -41,7 +41,7 @@ func (o *options) validate() error {
 		return fmt.Errorf("history %v must be at least 10 intervals and at most 24h", o.History)
 	case o.ProcessHistory < o.Interval || o.ProcessHistory > o.History:
 		return fmt.Errorf("process_history %v must be between the interval and history", o.ProcessHistory)
-	case !filepath.IsAbs(o.Root):
+	case o.Root != "/" && !filepath.IsAbs(o.Root): // "/" is this machine's root on every platform
 		return fmt.Errorf("root %q must be an absolute path", o.Root)
 	case o.JournalBacklog < 0 || o.JournalBacklog > 1000:
 		return fmt.Errorf("journal_backlog %d must be between 0 and 1000", o.JournalBacklog)
@@ -53,7 +53,9 @@ func (o *options) validate() error {
 			return fmt.Errorf("unit type %q is not one of %s", t, strings.Join(unitTypes, ", "))
 		}
 	}
-	o.Root = filepath.Clean(o.Root)
+	if o.Root != "/" {
+		o.Root = filepath.Clean(o.Root)
+	}
 	return o.parseJournal()
 }
 

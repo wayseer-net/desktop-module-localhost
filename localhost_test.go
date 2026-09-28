@@ -35,6 +35,7 @@ func testModule(t *testing.T, root, extra string) *Module {
 	m := New()
 	m.statfs = func(p string) (fsUsage, error) {
 		rel, _ := filepath.Rel(root, p)
+		rel = filepath.ToSlash(rel)
 		if u, ok := fakeUsage[rel]; ok {
 			return u, nil
 		}
@@ -307,5 +308,12 @@ func TestAMetricWithNoSamplesYetIsAnEmptySeries(t *testing.T) {
 	}
 	if len(ss) != 1 || ss[0].Ref.Metric != MetricCPU || len(ss[0].Points) != 0 || ss[0].Unit != sdk.UnitPercent {
 		t.Errorf("series %+v; want the host's cpu, empty, and nothing of disk.read, which hosts lack", ss)
+	}
+}
+
+func TestSlashIsThisMachinesRootEverywhere(t *testing.T) {
+	o := defaults()
+	if err := o.validate(); err != nil || o.Root != "/" {
+		t.Errorf("root / validated to %q, %v; want / on every platform", o.Root, err)
 	}
 }
