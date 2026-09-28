@@ -293,3 +293,19 @@ func TestUnitsOnSizes(t *testing.T) {
 		t.Errorf("mtu has unit %q", u)
 	}
 }
+
+func TestAMetricWithNoSamplesYetIsAnEmptySeries(t *testing.T) {
+	m := testModule(t, copyFixture(t), "")
+	m.poll(context.Background(), time.Unix(1000, 0)) // one poll: no rate yet
+	host := ref(sdk.KindHost, "testbox")
+	ss, err := m.QuerySeries(context.Background(), sdk.SeriesQuery{
+		Entities: []sdk.EntityRef{host}, Metrics: []string{MetricCPU, MetricDiskRead},
+		Window: sdk.TimeWindow{From: time.Unix(0, 0), To: time.Unix(1e6, 0)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ss) != 1 || ss[0].Ref.Metric != MetricCPU || len(ss[0].Points) != 0 || ss[0].Unit != sdk.UnitPercent {
+		t.Errorf("series %+v; want the host's cpu, empty, and nothing of disk.read, which hosts lack", ss)
+	}
+}

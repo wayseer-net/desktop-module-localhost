@@ -204,7 +204,8 @@ func (m *Module) Discover(ctx context.Context) (*sdk.ChangeSet, error) {
 // Metrics lists the series the module records.
 func (m *Module) Metrics() []sdk.Metric { return slices.Clone(catalogue) }
 
-// QuerySeries answers from the recorded history, thinned to about one point per step.
+// QuerySeries answers from the recorded history, thinned to about one point per step; a metric
+// of the entity's kind with no samples yet is an empty series, as the entity has it.
 func (m *Module) QuerySeries(ctx context.Context, q sdk.SeriesQuery) ([]sdk.Series, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -215,8 +216,11 @@ func (m *Module) QuerySeries(ctx context.Context, q sdk.SeriesQuery) ([]sdk.Seri
 	for _, e := range m.matching(q) {
 		for _, name := range q.Metrics {
 			ref := sdk.SeriesRef{Entity: e.Ref, Metric: name}
-			if h := m.series[ref]; h != nil {
+			switch h := m.series[ref]; {
+			case h != nil:
 				out = append(out, sdk.Series{Ref: ref, Unit: unitOf(name), Points: thin(h.In(q.Window), q)})
+			case applies(name, e.Kind):
+				out = append(out, sdk.Series{Ref: ref, Unit: unitOf(name)})
 			}
 		}
 	}

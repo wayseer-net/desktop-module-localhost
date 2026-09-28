@@ -2,6 +2,7 @@ package localhost
 
 import (
 	"mindseye/pkg/sdk"
+	"slices"
 	"strconv"
 )
 
@@ -38,6 +39,12 @@ var catalogue = []sdk.Metric{
 	{Name: MetricNetReceive, Unit: sdk.UnitBytesPS, Kinds: kinds(sdk.KindInterface), Description: "bytes received", Native: "/proc/net/dev"},
 	{Name: MetricNetSend, Unit: sdk.UnitBytesPS, Kinds: kinds(sdk.KindInterface), Description: "bytes sent", Native: "/proc/net/dev"},
 	{Name: MetricRSS, Unit: sdk.UnitBytes, Kinds: kinds(sdk.KindProcess), Description: "resident memory", Native: "/proc/<pid>/stat rss"},
+}
+
+// applies reports whether metric is one entities of kind have.
+func applies(metric string, kind sdk.Kind) bool {
+	i := slices.IndexFunc(catalogue, func(m sdk.Metric) bool { return m.Name == metric })
+	return i >= 0 && slices.Contains(catalogue[i].Kinds, kind)
 }
 
 func unitOf(metric string) sdk.Unit {
