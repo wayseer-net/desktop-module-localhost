@@ -16,7 +16,7 @@ func TestFakeReadsOnlyItsFixture(t *testing.T) {
 		switch e.Kind {
 		case KindFilesystem:
 			filesystems++
-			if e.Attrs["size"] != sdk.Number(100<<30) || e.Status.Level != sdk.StatusOK {
+			if !e.Attrs["size"].Equal(sdk.Number(100<<30).In(sdk.UnitBytes)) || e.Status.Level != sdk.StatusOK {
 				t.Errorf("%s: size %v, status %v; want the fake's 100 GiB, 40%% used", e.Name, e.Attrs["size"], e.Status)
 			}
 		case sdk.KindService:

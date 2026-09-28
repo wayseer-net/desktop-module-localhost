@@ -48,7 +48,7 @@ func (m *Module) buildWorld(s *sample) world {
 	b.link(b.memory(s.mem), b.w.host, sdk.RelMemberOf)
 	for _, d := range s.disks {
 		r := b.add(sdk.KindDisk, d.name, d.name, okStatus, pruned(map[string]sdk.Value{
-			"size": num(d.size), "model": sdk.String(d.model),
+			"size": inBytes(d.size), "model": sdk.String(d.model),
 			"rotational": sdk.Bool(d.rotational), "removable": sdk.Bool(d.removable),
 		}))
 		b.link(r, b.w.host, sdk.RelMemberOf)
@@ -125,7 +125,7 @@ func (b *builder) hostEntity(s *sample) sdk.EntityRef {
 	}
 	return b.add(sdk.KindHost, s.host.name, s.host.name, okStatus, pruned(map[string]sdk.Value{
 		"hostname": sdk.String(s.host.name), "kernel": sdk.String(s.host.kernel), "os": sdk.String(s.host.os),
-		"cores": num(len(s.stat.cpus)), "memory": num(s.mem.total), "booted": sdk.Time(s.stat.boot),
+		"cores": num(len(s.stat.cpus)), "memory": inBytes(s.mem.total), "booted": sdk.Time(s.stat.boot),
 		"ip": stringList(ips),
 	}))
 }
@@ -138,7 +138,7 @@ func (b *builder) memory(m memInfo) sdk.EntityRef {
 	case free < memWarn:
 		st = sdk.Status{Level: sdk.StatusWarn, Reason: "low on memory"}
 	}
-	return b.add(KindMemory, "memory", "memory", st, map[string]sdk.Value{"total": num(m.total), "swap_total": num(m.swapTotal)})
+	return b.add(KindMemory, "memory", "memory", st, map[string]sdk.Value{"total": inBytes(m.total), "swap_total": inBytes(m.swapTotal)})
 }
 
 func (b *builder) filesystem(f filesystem) {
@@ -152,7 +152,7 @@ func (b *builder) filesystem(f filesystem) {
 		st = sdk.Status{Level: sdk.StatusWarn, Reason: "nearly full"}
 	}
 	r := b.add(KindFilesystem, f.id, f.name, st, map[string]sdk.Value{
-		"type": sdk.String(f.fstype), "mounts": stringList(f.mounts), "size": num(f.usage.total),
+		"type": sdk.String(f.fstype), "mounts": stringList(f.mounts), "size": inBytes(f.usage.total),
 	})
 	if f.disk != "" {
 		b.link(r, b.ref(sdk.KindDisk, f.disk), sdk.RelRunsOn)
@@ -242,6 +242,9 @@ func pruned(a map[string]sdk.Value) map[string]sdk.Value {
 }
 
 func num[T int | uint64](v T) sdk.Value { return sdk.Number(float64(v)) }
+
+// inBytes is a size in bytes.
+func inBytes(n uint64) sdk.Value { return num(n).In(sdk.UnitBytes) }
 
 func stringList(ss []string) sdk.Value {
 	vs := make([]sdk.Value, len(ss))

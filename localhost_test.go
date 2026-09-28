@@ -272,3 +272,24 @@ func TestBadOptions(t *testing.T) {
 		}
 	}
 }
+
+func TestUnitsOnSizes(t *testing.T) {
+	m := testModule(t, copyFixture(t), "")
+	m.poll(context.Background(), time.Unix(1000, 0))
+	sized := map[sdk.EntityRef][]string{
+		ref(sdk.KindHost, "testbox"): {"memory"},
+		ref(KindMemory, "memory"):    {"total", "swap_total"},
+		ref(KindFilesystem, "dm-0"):  {"size"},
+		ref(sdk.KindDisk, "nvme0n1"): {"size"},
+	}
+	for r, keys := range sized {
+		for _, k := range keys {
+			if u := m.world.ents[r].Attrs[k].Unit(); u != sdk.UnitBytes {
+				t.Errorf("%s %s: unit %q, want bytes", r, k, u)
+			}
+		}
+	}
+	if u := m.world.ents[ref(sdk.KindInterface, "eth0")].Attrs["mtu"].Unit(); u != sdk.UnitNone {
+		t.Errorf("mtu has unit %q", u)
+	}
+}
