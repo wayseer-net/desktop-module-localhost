@@ -74,13 +74,13 @@ func TestRecordedEndingsClassify(t *testing.T) {
 		"killed while static and wanted by a target":   {rec: "kill", fileState: "static", pulled: true, journal: true, status: down, message: "exited unexpectedly"},
 		"killed while static and wanted by nothing":    {rec: "kill", fileState: "static", journal: true, status: stopped, message: "stopped"},
 		"killed while disabled and wanted by a target": {rec: "kill", fileState: "disabled", pulled: true, journal: true, status: down, message: "exited unexpectedly"},
-		"killed while enabled and started by a socket": {rec: "kill", fileState: "enabled", trigger: "mindseye-rec.socket", journal: true, status: down, message: "exited unexpectedly"},
+		"killed while enabled and started by a socket": {rec: "kill", fileState: "enabled", trigger: "wayseer-rec.socket", journal: true, status: down, message: "exited unexpectedly"},
 		"killed while transient":                       {rec: "kill", journal: true, status: stopped, message: "stopped"},
 		"crashed while enabled":                        {rec: "crash", fileState: "enabled", journal: true, status: down, message: "failed"},
 		"crashed while transient":                      {rec: "crash", journal: true, status: sdk.Status{Level: sdk.StatusCrit, Reason: "failed"}, message: "failed"},
 		"an enabled oneshot finished":                  {rec: "oneshot", fileState: "enabled", pulled: true, journal: true, status: finished, message: "finished"},
-		"a timer's oneshot finished":                   {rec: "timer", fileState: "static", trigger: "mindseye-rec-timer.timer", journal: true, status: finished, message: "finished"},
-		"a timer's long-running service ended":         {rec: "timer", fileState: "enabled", svcType: "simple", trigger: "mindseye-rec-timer.timer", journal: true, status: stopped, message: "stopped"},
+		"a timer's oneshot finished":                   {rec: "timer", fileState: "static", trigger: "wayseer-rec-timer.timer", journal: true, status: finished, message: "finished"},
+		"a timer's long-running service ended":         {rec: "timer", fileState: "enabled", svcType: "simple", trigger: "wayseer-rec-timer.timer", journal: true, status: stopped, message: "stopped"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			m, unit, evs := replay(t, recordings(t)[c.rec], c)
@@ -99,7 +99,7 @@ func TestRecordedEndingsClassify(t *testing.T) {
 // before it did; it returns the events of the end.
 func replay(t *testing.T, rec stopRecording, c endCase, extra ...journalEntry) (*Module, string, []sdk.Event) {
 	t.Helper()
-	unit := "mindseye-rec-" + c.rec + ".service"
+	unit := "wayseer-rec-" + c.rec + ".service"
 	f := newFakeSystem(t)
 	running := "active"
 	if rec.Before == nil || rec.Before["ActiveState"].value(t) != "active" {
@@ -201,7 +201,7 @@ func TestAStartClearsAStopRequest(t *testing.T) {
 func replayWith(t *testing.T, rec stopRecording, c endCase, entries ...journalEntry) (*Module, string) {
 	t.Helper()
 	for i := range entries {
-		entries[i].object = "mindseye-rec-" + c.rec + ".service"
+		entries[i].object = "wayseer-rec-" + c.rec + ".service"
 	}
 	m, unit, _ := replay(t, rec, c, entries...)
 	return m, unit
@@ -217,15 +217,15 @@ func TestJobLinesBelowThePriorityAreOnlySignals(t *testing.T) {
 	if cs := quiet.logged(entries); len(cs.Events) != 0 {
 		t.Errorf("journal: warning sent info lines %+v", cs.Events)
 	}
-	if _, ok := quiet.units.stops["mindseye-rec-stop.service"]; !ok {
+	if _, ok := quiet.units.stops["wayseer-rec-stop.service"]; !ok {
 		t.Error("the stop was not noted")
 	}
 	f := newFakeSystem(t)
-	f.list = append(f.list, unitReply{Name: "mindseye-rec-stop.service", LoadState: "loaded", ActiveState: "active"})
+	f.list = append(f.list, unitReply{Name: "wayseer-rec-stop.service", LoadState: "loaded", ActiveState: "active"})
 	loud := systemModule(t, f, "journal: info")
 	loud.poll(context.Background(), entries[0].at)
 	cs := loud.logged(entries)
-	if len(cs.Events) != len(entries) || cs.Events[1].Entity != unitRef("mindseye-rec-stop.service") {
+	if len(cs.Events) != len(entries) || cs.Events[1].Entity != unitRef("wayseer-rec-stop.service") {
 		t.Errorf("journal: info sent %+v, want the lines on the unit", cs.Events)
 	}
 }

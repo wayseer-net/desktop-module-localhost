@@ -1,4 +1,4 @@
-// Package localhost is the `localhost` module: the machine Mind's Eye runs on, read from /proc
+// Package localhost is the `localhost` module: the machine Wayseer runs on, read from /proc
 // and /sys, or on macOS from sysctls and Mach calls (no disks, units or journal). It lists the host, its CPUs, memory, disks, filesystems, network interfaces and
 // processes, with series for CPU, memory, disk and network use. Where the machine runs
 // systemd it adds the running system units (over D-Bus) with their dependencies, and journal
