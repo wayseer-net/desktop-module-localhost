@@ -166,7 +166,7 @@ func latest(t *testing.T, m *Module, r sdk.EntityRef, metric string) float64 {
 	t.Helper()
 	ss, err := m.QuerySeries(context.Background(), sdk.SeriesQuery{
 		Entities: []sdk.EntityRef{r}, Metrics: []string{metric},
-		Window: sdk.TimeWindow{From: time.Unix(0, 0), To: time.Unix(1e6, 0)},
+		Window: sdk.TimeWindow{From: time.Unix(0, 0), To: time.Now().Add(time.Hour)}, // fixtures and live reads
 	})
 	if err != nil || len(ss) != 1 || len(ss[0].Points) == 0 {
 		t.Fatalf("%s %s: %+v, %v", r, metric, ss, err)
@@ -206,6 +206,15 @@ func TestRatesBetweenPolls(t *testing.T) {
 		if got := latest(t, m, c.r, c.metric); math.Abs(got-c.want) > 1e-9 {
 			t.Errorf("%s %s = %v; want %v", c.r.Native(), c.metric, got, c.want)
 		}
+	}
+}
+
+// TestALiveReadIsQueried reads the fixture at the wall clock, as a live read does.
+func TestALiveReadIsQueried(t *testing.T) {
+	m := testModule(t, copyFixture(t), "")
+	m.poll(context.Background(), time.Now())
+	if rss := latest(t, m, ref(sdk.KindProcess, "1201"), MetricRSS); rss != float64(1000*os.Getpagesize()) {
+		t.Errorf("rss %v read now", rss)
 	}
 }
 
@@ -301,7 +310,7 @@ func TestAMetricWithNoSamplesYetIsAnEmptySeries(t *testing.T) {
 	host := ref(sdk.KindHost, "testbox")
 	ss, err := m.QuerySeries(context.Background(), sdk.SeriesQuery{
 		Entities: []sdk.EntityRef{host}, Metrics: []string{MetricCPU, MetricDiskRead},
-		Window: sdk.TimeWindow{From: time.Unix(0, 0), To: time.Unix(1e6, 0)},
+		Window: sdk.TimeWindow{From: time.Unix(0, 0), To: time.Now().Add(time.Hour)}, // fixtures and live reads
 	})
 	if err != nil {
 		t.Fatal(err)
