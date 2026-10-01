@@ -1,6 +1,9 @@
 package localhost
 
-import "syscall"
+import (
+	"mindseye/pkg/sdk"
+	"syscall"
+)
 
 const supported = true
 
@@ -15,3 +18,6 @@ func statfs(path string) (fsUsage, error) {
 	bs := uint64(st.Bsize) //nolint:gosec // block sizes are small and positive
 	return fsUsage{total: st.Blocks * bs, used: (st.Blocks - st.Bfree) * bs, avail: st.Bavail * bs}, nil
 }
+
+// nativeSource is nil: Linux is read through /proc and /sys.
+func nativeSource(*reader) (source, []sdk.Metric) { return nil, nil }

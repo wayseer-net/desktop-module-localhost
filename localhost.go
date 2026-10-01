@@ -34,7 +34,8 @@ type Module struct {
 	journalRetry time.Duration // wait before restarting journalctl
 
 	mu          sync.Mutex // guards what follows, shared by Run and queries
-	reader      reader
+	reader      source
+	metrics     []sdk.Metric // what reader can measure
 	units       unitWatcher
 	journal     system // nil when the journal is not read
 	world       world
@@ -48,7 +49,7 @@ type Module struct {
 
 // New makes an unconfigured module.
 func New() *Module {
-	return &Module{statfs: statfs, addrs: interfaceAddrs, system: liveSystem{}, journalRetry: 30 * time.Second}
+	return &Module{statfs: statfs, addrs: interfaceAddrs, system: liveSystem{}, journalRetry: 30 * time.Second, metrics: catalogue}
 }
 
 // Info describes the module.
@@ -75,9 +76,15 @@ func (m *Module) Configure(_ context.Context, cfg sdk.Config) error {
 	if _, live := sys.(liveSystem); live && o.Root != "/" {
 		addrs, sys = nil, nil // another machine's tree: this one's addresses and services would be wrong
 	}
-	m.reader = reader{
+	r := &reader{
 		fsys: os.DirFS(o.Root), root: o.Root, statfs: m.statfs, addrs: addrs,
 		procs: o.Processes, cmds: o.Commands, details: map[procKey]procDetail{},
+	}
+	m.reader, m.metrics = r, catalogue
+	if o.Root == "/" {
+		if n, metrics := nativeSource(r); n != nil {
+			m.reader, m.metrics, sys = n, metrics, nil // not Linux: no procfs, systemd or journal
+		}
 	}
 	m.units.close()
 	m.units, m.journal = newUnitWatcher(sys, o.Units, o.KeepStopped), sys
@@ -202,7 +209,7 @@ func (m *Module) Discover(ctx context.Context) (*sdk.ChangeSet, error) {
 }
 
 // Metrics lists the series the module records.
-func (m *Module) Metrics() []sdk.Metric { return slices.Clone(catalogue) }
+func (m *Module) Metrics() []sdk.Metric { return slices.Clone(m.metrics) }
 
 // QuerySeries answers from the recorded history, thinned to about one point per step; a metric
 // of the entity's kind with no samples yet is an empty series, as the entity has it.
@@ -218,9 +225,9 @@ func (m *Module) QuerySeries(ctx context.Context, q sdk.SeriesQuery) ([]sdk.Seri
 			ref := sdk.SeriesRef{Entity: e.Ref, Metric: name}
 			switch h := m.series[ref]; {
 			case h != nil:
-				out = append(out, sdk.Series{Ref: ref, Unit: unitOf(name), Points: thin(h.In(q.Window), q)})
-			case applies(name, e.Kind):
-				out = append(out, sdk.Series{Ref: ref, Unit: unitOf(name)})
+				out = append(out, sdk.Series{Ref: ref, Unit: unitOf(m.metrics, name), Points: thin(h.In(q.Window), q)})
+			case applies(m.metrics, name, e.Kind):
+				out = append(out, sdk.Series{Ref: ref, Unit: unitOf(m.metrics, name)})
 			}
 		}
 	}

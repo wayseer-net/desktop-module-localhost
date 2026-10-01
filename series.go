@@ -41,14 +41,40 @@ var catalogue = []sdk.Metric{
 	{Name: MetricRSS, Unit: sdk.UnitBytes, Kinds: kinds(sdk.KindProcess), Description: "resident memory", Native: "/proc/<pid>/stat rss"},
 }
 
-// applies reports whether metric is one entities of kind have.
-func applies(metric string, kind sdk.Kind) bool {
-	i := slices.IndexFunc(catalogue, func(m sdk.Metric) bool { return m.Name == metric })
-	return i >= 0 && slices.Contains(catalogue[i].Kinds, kind)
+// macNatives is where macOS's metrics come from; it has no disk metrics, as disks are not read.
+var macNatives = map[string]string{
+	MetricCPU:        "host_processor_info, proc_pidinfo",
+	MetricMemUtil:    "host_statistics64 free and inactive pages",
+	MetricMemUsed:    "hw.memsize less free and inactive pages",
+	MetricMemAvail:   "free and inactive pages",
+	MetricSwapUsed:   "vm.swapusage",
+	MetricFSUsed:     "getfsstat",
+	MetricFSUtil:     "getfsstat",
+	MetricNetReceive: "NET_RT_IFLIST2 ibytes",
+	MetricNetSend:    "NET_RT_IFLIST2 obytes",
+	MetricRSS:        "proc_pidinfo resident size",
 }
 
-func unitOf(metric string) sdk.Unit {
+// macCatalogue is the catalogue as macOS has it; a metric it lacks is left out, not zero.
+func macCatalogue() []sdk.Metric {
+	var out []sdk.Metric
 	for _, m := range catalogue {
+		if native, ok := macNatives[m.Name]; ok {
+			m.Native = native
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// applies reports whether metric is one entities of kind have.
+func applies(cat []sdk.Metric, metric string, kind sdk.Kind) bool {
+	i := slices.IndexFunc(cat, func(m sdk.Metric) bool { return m.Name == metric })
+	return i >= 0 && slices.Contains(cat[i].Kinds, kind)
+}
+
+func unitOf(cat []sdk.Metric, metric string) sdk.Unit {
+	for _, m := range cat {
 		if m.Name == metric {
 			return m.Unit
 		}
@@ -153,6 +179,9 @@ func (r *recorder) processes() {
 	}
 	capacity := r.elapsed * clockTick * float64(max(len(r.cur.stat.cpus), 1))
 	for _, p := range r.cur.procs {
+		if p.unmeasured {
+			continue
+		}
 		ref := r.ref(sdk.KindProcess, strconv.Itoa(p.pid))
 		r.put(ref, MetricRSS, float64(p.rss*r.m.pageSize))
 		if cpu, ok := before[procKey{p.pid, p.start}]; ok && capacity > 0 && p.cpu >= cpu {

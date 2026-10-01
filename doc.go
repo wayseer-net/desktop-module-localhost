@@ -1,9 +1,9 @@
 // Package localhost is the `localhost` module: the machine Mind's Eye runs on, read from /proc
-// and /sys. It lists the host, its CPUs, memory, disks, filesystems, network interfaces and
+// and /sys, or on macOS from sysctls and Mach calls (no disks, units or journal). It lists the host, its CPUs, memory, disks, filesystems, network interfaces and
 // processes, with series for CPU, memory, disk and network use. Where the machine runs
 // systemd it adds the running system units (over D-Bus) with their dependencies, and journal
-// entries as events (from journalctl). Linux only for now; other platforms build but refuse to
-// configure unless root points at a copied Linux tree, where systemd and the journal are off.
+// entries as events (from journalctl). Other platforms build but refuse to configure unless
+// root points at a copied Linux tree, where systemd and the journal are off.
 //
 //	modules:
 //	  - kind: localhost

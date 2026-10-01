@@ -54,6 +54,7 @@ type nic struct {
 type process struct {
 	pidStat
 	command, user, cgroup string
+	unmeasured            bool // its CPU and memory could not be read, so it has no points
 }
 
 // procKey identifies a process across pid reuse.
@@ -63,6 +64,11 @@ type procKey struct {
 }
 
 type procDetail struct{ command, user, cgroup string }
+
+// source takes samples of a machine.
+type source interface {
+	read(now time.Time) (*sample, error)
+}
 
 // reader reads a machine through a file tree rooted like /.
 type reader struct {
