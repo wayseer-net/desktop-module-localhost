@@ -5,14 +5,14 @@ import (
 	"errors"
 	"io/fs"
 	"math"
-	"mindseye/pkg/sdk"
-	"mindseye/pkg/sdk/sdktest"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 	"time"
+	"wayseer/pkg/sdk"
+	"wayseer/pkg/sdk/sdktest"
 
 	"go.yaml.in/yaml/v3"
 )

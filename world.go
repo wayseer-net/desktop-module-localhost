@@ -2,10 +2,10 @@ package localhost
 
 import (
 	"maps"
-	"mindseye/pkg/sdk"
 	"strconv"
 	"strings"
 	"time"
+	"wayseer/pkg/sdk"
 )
 
 // Entity kinds the module adds to the core vocabulary.

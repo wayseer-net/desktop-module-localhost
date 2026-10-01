@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"io"
-	"mindseye/pkg/sdk"
-	"mindseye/pkg/sdk/sdktest"
 	"os"
 	"slices"
 	"strings"
 	"testing"
 	"time"
+	"wayseer/pkg/sdk"
+	"wayseer/pkg/sdk/sdktest"
 )
 
 func journalModule(t *testing.T, f *fakeSystem, extra string) (*Module, *sdktest.Sink) {

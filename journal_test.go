@@ -2,12 +2,12 @@ package localhost
 
 import (
 	"bytes"
-	"mindseye/pkg/sdk"
 	"os"
 	"slices"
 	"strings"
 	"testing"
 	"time"
+	"wayseer/pkg/sdk"
 )
 
 const journalFixture = "../../testdata/journal/entries.jsonl"

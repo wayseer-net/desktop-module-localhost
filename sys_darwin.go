@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"mindseye/pkg/sdk"
 	"net"
 	"os"
 	"os/user"
@@ -14,6 +13,7 @@ import (
 	"sync"
 	"time"
 	"unsafe"
+	"wayseer/pkg/sdk"
 
 	"github.com/ebitengine/purego"
 	"golang.org/x/net/route"

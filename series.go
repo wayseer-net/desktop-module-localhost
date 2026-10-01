@@ -1,9 +1,9 @@
 package localhost
 
 import (
-	"mindseye/pkg/sdk"
 	"slices"
 	"strconv"
+	"wayseer/pkg/sdk"
 )
 
 // Metric names.

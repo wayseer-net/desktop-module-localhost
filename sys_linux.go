@@ -1,8 +1,8 @@
 package localhost
 
 import (
-	"mindseye/pkg/sdk"
 	"syscall"
+	"wayseer/pkg/sdk"
 )
 
 const supported = true

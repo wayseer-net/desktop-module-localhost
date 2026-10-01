@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"mindseye/pkg/sdk"
 	"slices"
 	"testing"
 	"time"
+	"wayseer/pkg/sdk"
 )
 
 // stopRecording is one way a unit ended, from testdata/systemd/stops.json.

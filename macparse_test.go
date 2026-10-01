@@ -2,11 +2,11 @@ package localhost
 
 import (
 	"encoding/binary"
-	"mindseye/pkg/sdk"
 	"slices"
 	"strings"
 	"testing"
 	"time"
+	"wayseer/pkg/sdk"
 )
 
 // macBytes builds a darwin structure: put writes v little-endian at off.

@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"mindseye/pkg/sdk"
 	"strconv"
 	"strings"
 	"time"
+	"wayseer/pkg/sdk"
 )
 
 // messageCap bounds a journal message kept in an event.

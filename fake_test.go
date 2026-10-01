@@ -2,9 +2,9 @@ package localhost
 
 import (
 	"context"
-	"mindseye/pkg/sdk"
 	"testing"
 	"time"
+	"wayseer/pkg/sdk"
 )
 
 func TestFakeReadsOnlyItsFixture(t *testing.T) {

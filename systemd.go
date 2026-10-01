@@ -5,10 +5,10 @@ import (
 	"errors"
 	"io"
 	"maps"
-	"mindseye/pkg/sdk"
 	"slices"
 	"strings"
 	"time"
+	"wayseer/pkg/sdk"
 
 	"github.com/godbus/dbus/v5"
 )

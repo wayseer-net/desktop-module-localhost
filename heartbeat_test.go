@@ -2,11 +2,11 @@ package localhost
 
 import (
 	"context"
-	"mindseye/pkg/sdk/sdktest"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+	"wayseer/pkg/sdk/sdktest"
 )
 
 func TestAQuietMachineIsStillSentEachPoll(t *testing.T) {

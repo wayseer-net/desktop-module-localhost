@@ -5,9 +5,9 @@ import (
 	"context"
 	"errors"
 	"io"
-	"mindseye/pkg/sdk"
 	"strconv"
 	"time"
+	"wayseer/pkg/sdk"
 )
 
 const (

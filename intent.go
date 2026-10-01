@@ -1,10 +1,10 @@
 package localhost
 
 import (
-	"mindseye/pkg/sdk"
 	"slices"
 	"strings"
 	"time"
+	"wayseer/pkg/sdk"
 )
 
 var (

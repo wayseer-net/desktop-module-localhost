@@ -2,10 +2,10 @@ package localhost
 
 import (
 	"context"
-	"mindseye/pkg/sdk"
 	"slices"
 	"testing"
 	"time"
+	"wayseer/pkg/sdk"
 )
 
 var sshd = unitRef("sshd.service")

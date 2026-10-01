@@ -4,8 +4,8 @@ package localhost
 
 import (
 	"errors"
-	"mindseye/pkg/sdk"
 	"runtime"
+	"wayseer/pkg/sdk"
 )
 
 const supported = false

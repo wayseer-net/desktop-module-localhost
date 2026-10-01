@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"mindseye/pkg/sdk"
 	"os"
 	"reflect"
 	"slices"
 	"sync"
 	"testing"
 	"time"
+	"wayseer/pkg/sdk"
 )
 
 // fakeSystem replays recorded systemd replies and journal lines.
