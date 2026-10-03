@@ -4,7 +4,8 @@ import (
 	"slices"
 	"strings"
 	"time"
-	"wayseer/pkg/sdk"
+
+	"wayseer.dev/sdk"
 )
 
 var (

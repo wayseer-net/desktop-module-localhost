@@ -8,7 +8,8 @@ import (
 	"slices"
 	"strings"
 	"time"
-	"wayseer/pkg/sdk"
+
+	"wayseer.dev/sdk"
 
 	"github.com/godbus/dbus/v5"
 )

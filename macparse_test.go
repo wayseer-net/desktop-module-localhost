@@ -6,7 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"wayseer/pkg/sdk"
+
+	"wayseer.dev/sdk"
 )
 
 // macBytes builds a darwin structure: put writes v little-endian at off.

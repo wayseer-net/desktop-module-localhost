@@ -6,7 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"wayseer/pkg/sdk"
+
+	"wayseer.dev/sdk"
 )
 
 // TestDarwinLive reads this Mac: the host, its CPUs, and at least one filesystem and process,

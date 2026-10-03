@@ -7,7 +7,8 @@ import (
 	"io"
 	"strconv"
 	"time"
-	"wayseer/pkg/sdk"
+
+	"wayseer.dev/sdk"
 )
 
 const (

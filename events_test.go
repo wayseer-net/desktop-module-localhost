@@ -9,8 +9,9 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"wayseer/pkg/sdk"
-	"wayseer/pkg/sdk/sdktest"
+
+	"wayseer.dev/sdk"
+	"wayseer.dev/sdk/sdktest"
 )
 
 func journalModule(t *testing.T, f *fakeSystem, extra string) (*Module, *sdktest.Sink) {

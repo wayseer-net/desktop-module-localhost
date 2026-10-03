@@ -5,7 +5,8 @@ import (
 	"slices"
 	"testing"
 	"time"
-	"wayseer/pkg/sdk"
+
+	"wayseer.dev/sdk"
 )
 
 var sshd = unitRef("sshd.service")

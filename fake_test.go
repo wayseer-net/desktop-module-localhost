@@ -4,7 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
-	"wayseer/pkg/sdk"
+
+	"wayseer.dev/sdk"
 )
 
 func TestFakeReadsOnlyItsFixture(t *testing.T) {

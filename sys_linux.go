@@ -2,7 +2,8 @@ package localhost
 
 import (
 	"syscall"
-	"wayseer/pkg/sdk"
+
+	"wayseer.dev/sdk"
 )
 
 const supported = true

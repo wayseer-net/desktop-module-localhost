@@ -3,7 +3,8 @@ package localhost
 import (
 	"slices"
 	"strconv"
-	"wayseer/pkg/sdk"
+
+	"wayseer.dev/sdk"
 )
 
 // Metric names.

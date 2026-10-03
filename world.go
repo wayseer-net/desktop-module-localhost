@@ -5,7 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"wayseer/pkg/sdk"
+
+	"wayseer.dev/sdk"
 )
 
 // Entity kinds the module adds to the core vocabulary.

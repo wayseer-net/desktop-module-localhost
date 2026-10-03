@@ -5,7 +5,8 @@ package localhost
 import (
 	"errors"
 	"runtime"
-	"wayseer/pkg/sdk"
+
+	"wayseer.dev/sdk"
 )
 
 const supported = false

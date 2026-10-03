@@ -13,7 +13,8 @@ import (
 	"sync"
 	"time"
 	"unsafe"
-	"wayseer/pkg/sdk"
+
+	"wayseer.dev/sdk"
 
 	"github.com/ebitengine/purego"
 	"golang.org/x/net/route"

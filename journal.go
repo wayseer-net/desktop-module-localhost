@@ -7,7 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"wayseer/pkg/sdk"
+
+	"wayseer.dev/sdk"
 )
 
 // messageCap bounds a journal message kept in an event.

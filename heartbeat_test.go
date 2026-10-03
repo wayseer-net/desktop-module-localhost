@@ -6,7 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-	"wayseer/pkg/sdk/sdktest"
+
+	"wayseer.dev/sdk/sdktest"
 )
 
 func TestAQuietMachineIsStillSentEachPoll(t *testing.T) {

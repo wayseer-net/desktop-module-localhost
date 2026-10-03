@@ -11,7 +11,8 @@ import (
 	"sync"
 	"testing"
 	"time"
-	"wayseer/pkg/sdk"
+
+	"wayseer.dev/sdk"
 )
 
 // fakeSystem replays recorded systemd replies and journal lines.

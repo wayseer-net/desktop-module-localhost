@@ -7,7 +7,8 @@ import (
 	"slices"
 	"testing"
 	"time"
-	"wayseer/pkg/sdk"
+
+	"wayseer.dev/sdk"
 )
 
 // stopRecording is one way a unit ended, from testdata/systemd/stops.json.
