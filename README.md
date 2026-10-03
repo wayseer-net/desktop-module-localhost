@@ -13,7 +13,7 @@ Wayseer links it in, so users do not install it. Its options and what it shows a
 user guide, under "This machine".
 
 `testdata` holds a made-up Linux tree (`procfs`), systemd's answers and journal entries, which
-the tests read instead of the machine. Wayseer's `scripts/recordunits.sh` re-records
+the tests read instead of the machine. `scripts/recordunits.sh` re-records
 `testdata/systemd/stops.json` on a machine with systemd.
 
 ## Working on it
