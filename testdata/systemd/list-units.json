@@ -1,0 +1,187 @@
+{
+ "type": "a(ssssssouso)",
+ "data": [
+  [
+   [
+    "basic.target",
+    "Basic System",
+    "loaded",
+    "active",
+    "active",
+    "",
+    "/org/freedesktop/systemd1/unit/basic_2etarget",
+    0,
+    "",
+    "/"
+   ],
+   [
+    "multi-user.target",
+    "Multi-User System",
+    "loaded",
+    "active",
+    "active",
+    "",
+    "/org/freedesktop/systemd1/unit/multi_2duser_2etarget",
+    0,
+    "",
+    "/"
+   ],
+   [
+    "sshd.service",
+    "OpenSSH Daemon",
+    "loaded",
+    "active",
+    "running",
+    "",
+    "/org/freedesktop/systemd1/unit/sshd_2eservice",
+    0,
+    "",
+    "/"
+   ],
+   [
+    "sshdgenkeys.service",
+    "SSH Key Generation",
+    "loaded",
+    "inactive",
+    "dead",
+    "",
+    "/org/freedesktop/systemd1/unit/sshdgenkeys_2eservice",
+    0,
+    "",
+    "/"
+   ],
+   [
+    "cups.service",
+    "CUPS Scheduler",
+    "loaded",
+    "failed",
+    "failed",
+    "",
+    "/org/freedesktop/systemd1/unit/cups_2eservice",
+    0,
+    "",
+    "/"
+   ],
+   [
+    "cups.socket",
+    "CUPS Scheduler",
+    "loaded",
+    "active",
+    "listening",
+    "",
+    "/org/freedesktop/systemd1/unit/cups_2esocket",
+    0,
+    "",
+    "/"
+   ],
+   [
+    "backup.timer",
+    "Nightly backup",
+    "loaded",
+    "active",
+    "waiting",
+    "",
+    "/org/freedesktop/systemd1/unit/backup_2etimer",
+    0,
+    "",
+    "/"
+   ],
+   [
+    "backup.service",
+    "Nightly backup",
+    "loaded",
+    "inactive",
+    "dead",
+    "",
+    "/org/freedesktop/systemd1/unit/backup_2eservice",
+    0,
+    "",
+    "/"
+   ],
+   [
+    "nginx.service",
+    "A high performance web server",
+    "loaded",
+    "activating",
+    "start",
+    "",
+    "/org/freedesktop/systemd1/unit/nginx_2eservice",
+    0,
+    "",
+    "/"
+   ],
+   [
+    "user@1000.service",
+    "User Manager for UID 1000",
+    "loaded",
+    "active",
+    "running",
+    "",
+    "/org/freedesktop/systemd1/unit/user_401000_2eservice",
+    0,
+    "",
+    "/"
+   ],
+   [
+    "systemd-journald.service",
+    "Journal Service",
+    "loaded",
+    "active",
+    "running",
+    "",
+    "/org/freedesktop/systemd1/unit/systemd_2djournald_2eservice",
+    0,
+    "",
+    "/"
+   ],
+   [
+    "dev-nvme0n1.device",
+    "Samsung SSD 990 PRO 2TB",
+    "loaded",
+    "active",
+    "plugged",
+    "",
+    "/org/freedesktop/systemd1/unit/dev_2dnvme0n1_2edevice",
+    0,
+    "",
+    "/"
+   ],
+   [
+    "boot.mount",
+    "/boot",
+    "loaded",
+    "active",
+    "mounted",
+    "",
+    "/org/freedesktop/systemd1/unit/boot_2emount",
+    0,
+    "",
+    "/"
+   ],
+   [
+    "init.scope",
+    "System and Service Manager",
+    "loaded",
+    "active",
+    "running",
+    "",
+    "/org/freedesktop/systemd1/unit/init_2escope",
+    0,
+    "",
+    "/"
+   ],
+   [
+    "tmp.mount",
+    "tmp.mount",
+    "not-found",
+    "inactive",
+    "dead",
+    "",
+    "/org/freedesktop/systemd1/unit/tmp_2emount",
+    0,
+    "",
+    "/"
+   ]
+  ]
+ ]
+}

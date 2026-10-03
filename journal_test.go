@@ -10,7 +10,7 @@ import (
 	"wayseer/pkg/sdk"
 )
 
-const journalFixture = "../../testdata/journal/entries.jsonl"
+const journalFixture = "testdata/journal/entries.jsonl"
 
 func journalLines(t *testing.T) [][]byte {
 	t.Helper()

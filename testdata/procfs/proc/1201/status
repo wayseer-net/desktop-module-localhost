@@ -1,0 +1,7 @@
+Name:	bash
+Umask:	0022
+State:	R
+Pid:	1201
+PPid:	1200
+Uid:	1000	1000	1000	1000
+Gid:	1000	1000	1000	1000

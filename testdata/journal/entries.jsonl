@@ -1,0 +1,8 @@
+{"__CURSOR": "s=fixture;i=1", "__REALTIME_TIMESTAMP": "1790000001000000", "_HOSTNAME": "testbox", "_TRANSPORT": "journal", "PRIORITY": "6", "_SYSTEMD_UNIT": "sshd.service", "SYSLOG_IDENTIFIER": "sshd", "_PID": "412", "MESSAGE": "Server listening on 0.0.0.0 port 22."}
+{"__CURSOR": "s=fixture;i=2", "__REALTIME_TIMESTAMP": "1790000002000000", "_HOSTNAME": "testbox", "_TRANSPORT": "journal", "PRIORITY": "3", "_SYSTEMD_UNIT": "cups.service", "SYSLOG_IDENTIFIER": "systemd", "_PID": "1", "MESSAGE": "Failed to start CUPS Scheduler."}
+{"__CURSOR": "s=fixture;i=3", "__REALTIME_TIMESTAMP": "1790000003000000", "_HOSTNAME": "testbox", "_TRANSPORT": "kernel", "PRIORITY": "4", "SYSLOG_IDENTIFIER": "kernel", "MESSAGE": "usb 3-2: device descriptor read/64, error -71"}
+{"__CURSOR": "s=fixture;i=4", "__REALTIME_TIMESTAMP": "1790000004000000", "_HOSTNAME": "testbox", "_TRANSPORT": "journal", "PRIORITY": "2", "_SYSTEMD_UNIT": "nginx.service", "SYSLOG_IDENTIFIER": "nginx", "_PID": "999", "MESSAGE": [98, 97, 100, 32, 255, 32, 98, 121, 116, 101]}
+{"__CURSOR": "s=fixture;i=5", "__REALTIME_TIMESTAMP": "1790000005000000", "_HOSTNAME": "testbox", "_TRANSPORT": "journal", "PRIORITY": "5", "_SYSTEMD_UNIT": "session-3.scope", "SYSLOG_IDENTIFIER": "bash", "_PID": "1201", "MESSAGE": null}
+this line is not json
+{"__CURSOR": "s=fixture;i=6", "__REALTIME_TIMESTAMP": "1790000006000000", "_HOSTNAME": "testbox", "_TRANSPORT": "journal", "PRIORITY": "4", "_SYSTEMD_UNIT": "gone.service", "SYSLOG_IDENTIFIER": "gone", "MESSAGE": "Unit gone.service entered failed state.  "}
+{"__CURSOR": "s=fixture;i=7", "__REALTIME_TIMESTAMP": "1790000007000000", "_HOSTNAME": "testbox", "_TRANSPORT": "journal", "_SYSTEMD_UNIT": "backup.timer", "MESSAGE": ["first", "second"]}

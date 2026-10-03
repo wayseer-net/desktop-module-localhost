@@ -1,0 +1,663 @@
+{
+  "stop": {
+    "before": {
+      "ActiveState": {
+        "type": "s",
+        "data": "active"
+      },
+      "SubState": {
+        "type": "s",
+        "data": "running"
+      },
+      "UnitFileState": {
+        "type": "s",
+        "data": "transient"
+      },
+      "ActiveEnterTimestamp": {
+        "type": "t",
+        "data": 1790401770938509
+      },
+      "InactiveEnterTimestamp": {
+        "type": "t",
+        "data": 0
+      },
+      "TriggeredBy": {
+        "type": "as",
+        "data": []
+      },
+      "Type": {
+        "type": "s",
+        "data": "simple"
+      },
+      "RemainAfterExit": {
+        "type": "b",
+        "data": false
+      },
+      "Result": {
+        "type": "s",
+        "data": "success"
+      },
+      "ExecMainCode": {
+        "type": "i",
+        "data": 0
+      },
+      "ExecMainStatus": {
+        "type": "i",
+        "data": 0
+      }
+    },
+    "during": [
+      "wayseer-rec-stop.service",
+      "[systemd-run] /usr/bin/sh -c \"trap \\\"sleep 1; exit 0\\\" TERM; while :; do sleep 0.2; done\"",
+      "loaded",
+      "deactivating",
+      "stop-sigterm",
+      "",
+      "/org/freedesktop/systemd1/unit/wayseer_2drec_2dstop_2eservice",
+      1253,
+      "stop",
+      "/org/freedesktop/systemd1/job/1253"
+    ],
+    "after": {
+      "ActiveState": {
+        "type": "s",
+        "data": "inactive"
+      },
+      "SubState": {
+        "type": "s",
+        "data": "dead"
+      },
+      "UnitFileState": {
+        "type": "s",
+        "data": "transient"
+      },
+      "ActiveEnterTimestamp": {
+        "type": "t",
+        "data": 1790401770938509
+      },
+      "InactiveEnterTimestamp": {
+        "type": "t",
+        "data": 1790401771973369
+      },
+      "TriggeredBy": {
+        "type": "as",
+        "data": []
+      },
+      "Type": {
+        "type": "s",
+        "data": "simple"
+      },
+      "RemainAfterExit": {
+        "type": "b",
+        "data": false
+      },
+      "Result": {
+        "type": "s",
+        "data": "success"
+      },
+      "ExecMainCode": {
+        "type": "i",
+        "data": 1
+      },
+      "ExecMainStatus": {
+        "type": "i",
+        "data": 0
+      }
+    },
+    "listed_after": [
+      "wayseer-rec-stop.service",
+      "[systemd-run] /usr/bin/sh -c \"trap \\\"sleep 1; exit 0\\\" TERM; while :; do sleep 0.2; done\"",
+      "loaded",
+      "inactive",
+      "dead",
+      "",
+      "/org/freedesktop/systemd1/unit/wayseer_2drec_2dstop_2eservice",
+      0,
+      "",
+      "/"
+    ],
+    "journal": [
+      {
+        "__CURSOR": "s=aa0bd4e1959648a1bc0394fa5d54503a;i=1dda6;b=b3901362b1b84d68980cb140a28a5022;m=e4e47b28c;t=65c5c658fe0be;x=c031b6cb3770ecfc",
+        "__REALTIME_TIMESTAMP": "1790401770938558",
+        "PRIORITY": "6",
+        "_PID": "1212",
+        "SYSLOG_IDENTIFIER": "systemd",
+        "MESSAGE": "Started [systemd-run] /usr/bin/sh -c \"trap \\\"sleep 1; exit 0\\\" TERM; while :; do sleep 0.2; done\".",
+        "MESSAGE_ID": "39f53479d3a045ac8e11786248231fbf",
+        "USER_UNIT": "wayseer-rec-stop.service",
+        "_SYSTEMD_USER_UNIT": "init.scope",
+        "JOB_TYPE": "start",
+        "JOB_RESULT": "done"
+      },
+      {
+        "__CURSOR": "s=aa0bd4e1959648a1bc0394fa5d54503a;i=1dda8;b=b3901362b1b84d68980cb140a28a5022;m=e4e48336f;t=65c5c659061a1;x=afc51afb0ef23afa",
+        "__REALTIME_TIMESTAMP": "1790401770971553",
+        "PRIORITY": "6",
+        "_PID": "1212",
+        "SYSLOG_IDENTIFIER": "systemd",
+        "MESSAGE": "Stopping [systemd-run] /usr/bin/sh -c \"trap \\\"sleep 1; exit 0\\\" TERM; while :; do sleep 0.2; done\"...",
+        "MESSAGE_ID": "de5b426a63be47a7b6ac3eaac82e2f6f",
+        "USER_UNIT": "wayseer-rec-stop.service",
+        "_SYSTEMD_USER_UNIT": "init.scope",
+        "JOB_TYPE": "stop"
+      },
+      {
+        "__CURSOR": "s=aa0bd4e1959648a1bc0394fa5d54503a;i=1dda9;b=b3901362b1b84d68980cb140a28a5022;m=e4e577e14;t=65c5c659fac46;x=76bba90ea055e02d",
+        "__REALTIME_TIMESTAMP": "1790401771973702",
+        "PRIORITY": "6",
+        "_PID": "1212",
+        "SYSLOG_IDENTIFIER": "systemd",
+        "MESSAGE": "Stopped [systemd-run] /usr/bin/sh -c \"trap \\\"sleep 1; exit 0\\\" TERM; while :; do sleep 0.2; done\".",
+        "MESSAGE_ID": "9d1aaa27d60140bd96365438aad20286",
+        "USER_UNIT": "wayseer-rec-stop.service",
+        "_SYSTEMD_USER_UNIT": "init.scope",
+        "JOB_TYPE": "stop",
+        "JOB_RESULT": "done"
+      }
+    ]
+  },
+  "kill": {
+    "before": {
+      "ActiveState": {
+        "type": "s",
+        "data": "active"
+      },
+      "SubState": {
+        "type": "s",
+        "data": "running"
+      },
+      "UnitFileState": {
+        "type": "s",
+        "data": "transient"
+      },
+      "ActiveEnterTimestamp": {
+        "type": "t",
+        "data": 1790401772567756
+      },
+      "InactiveEnterTimestamp": {
+        "type": "t",
+        "data": 0
+      },
+      "TriggeredBy": {
+        "type": "as",
+        "data": []
+      },
+      "Type": {
+        "type": "s",
+        "data": "simple"
+      },
+      "RemainAfterExit": {
+        "type": "b",
+        "data": false
+      },
+      "Result": {
+        "type": "s",
+        "data": "success"
+      },
+      "ExecMainCode": {
+        "type": "i",
+        "data": 0
+      },
+      "ExecMainStatus": {
+        "type": "i",
+        "data": 0
+      }
+    },
+    "during": [
+      "wayseer-rec-kill.service",
+      "[systemd-run] /usr/bin/sh -c \"trap \\\"sleep 1; exit 0\\\" TERM; while :; do sleep 0.2; done\"",
+      "loaded",
+      "active",
+      "running",
+      "",
+      "/org/freedesktop/systemd1/unit/wayseer_2drec_2dkill_2eservice",
+      0,
+      "",
+      "/"
+    ],
+    "after": {
+      "ActiveState": {
+        "type": "s",
+        "data": "inactive"
+      },
+      "SubState": {
+        "type": "s",
+        "data": "dead"
+      },
+      "UnitFileState": {
+        "type": "s",
+        "data": "transient"
+      },
+      "ActiveEnterTimestamp": {
+        "type": "t",
+        "data": 1790401772567756
+      },
+      "InactiveEnterTimestamp": {
+        "type": "t",
+        "data": 1790401773788478
+      },
+      "TriggeredBy": {
+        "type": "as",
+        "data": []
+      },
+      "Type": {
+        "type": "s",
+        "data": "simple"
+      },
+      "RemainAfterExit": {
+        "type": "b",
+        "data": false
+      },
+      "Result": {
+        "type": "s",
+        "data": "success"
+      },
+      "ExecMainCode": {
+        "type": "i",
+        "data": 1
+      },
+      "ExecMainStatus": {
+        "type": "i",
+        "data": 0
+      }
+    },
+    "listed_after": [
+      "wayseer-rec-kill.service",
+      "[systemd-run] /usr/bin/sh -c \"trap \\\"sleep 1; exit 0\\\" TERM; while :; do sleep 0.2; done\"",
+      "loaded",
+      "inactive",
+      "dead",
+      "",
+      "/org/freedesktop/systemd1/unit/wayseer_2drec_2dkill_2eservice",
+      0,
+      "",
+      "/"
+    ],
+    "journal": [
+      {
+        "__CURSOR": "s=aa0bd4e1959648a1bc0394fa5d54503a;i=1ddaa;b=b3901362b1b84d68980cb140a28a5022;m=e4e608ebc;t=65c5c65a8bcee;x=6481bf593beec56d",
+        "__REALTIME_TIMESTAMP": "1790401772567790",
+        "PRIORITY": "6",
+        "_PID": "1212",
+        "SYSLOG_IDENTIFIER": "systemd",
+        "MESSAGE": "Started [systemd-run] /usr/bin/sh -c \"trap \\\"sleep 1; exit 0\\\" TERM; while :; do sleep 0.2; done\".",
+        "MESSAGE_ID": "39f53479d3a045ac8e11786248231fbf",
+        "USER_UNIT": "wayseer-rec-kill.service",
+        "_SYSTEMD_USER_UNIT": "init.scope",
+        "JOB_TYPE": "start",
+        "JOB_RESULT": "done"
+      }
+    ]
+  },
+  "crash": {
+    "before": {
+      "ActiveState": {
+        "type": "s",
+        "data": "active"
+      },
+      "SubState": {
+        "type": "s",
+        "data": "running"
+      },
+      "UnitFileState": {
+        "type": "s",
+        "data": "transient"
+      },
+      "ActiveEnterTimestamp": {
+        "type": "t",
+        "data": 1790401774417422
+      },
+      "InactiveEnterTimestamp": {
+        "type": "t",
+        "data": 0
+      },
+      "TriggeredBy": {
+        "type": "as",
+        "data": []
+      },
+      "Type": {
+        "type": "s",
+        "data": "simple"
+      },
+      "RemainAfterExit": {
+        "type": "b",
+        "data": false
+      },
+      "Result": {
+        "type": "s",
+        "data": "success"
+      },
+      "ExecMainCode": {
+        "type": "i",
+        "data": 0
+      },
+      "ExecMainStatus": {
+        "type": "i",
+        "data": 0
+      }
+    },
+    "during": null,
+    "after": {
+      "ActiveState": {
+        "type": "s",
+        "data": "failed"
+      },
+      "SubState": {
+        "type": "s",
+        "data": "failed"
+      },
+      "UnitFileState": {
+        "type": "s",
+        "data": "transient"
+      },
+      "ActiveEnterTimestamp": {
+        "type": "t",
+        "data": 1790401774417422
+      },
+      "InactiveEnterTimestamp": {
+        "type": "t",
+        "data": 1790401774451289
+      },
+      "TriggeredBy": {
+        "type": "as",
+        "data": []
+      },
+      "Type": {
+        "type": "s",
+        "data": "simple"
+      },
+      "RemainAfterExit": {
+        "type": "b",
+        "data": false
+      },
+      "Result": {
+        "type": "s",
+        "data": "signal"
+      },
+      "ExecMainCode": {
+        "type": "i",
+        "data": 2
+      },
+      "ExecMainStatus": {
+        "type": "i",
+        "data": 9
+      }
+    },
+    "listed_after": [
+      "wayseer-rec-crash.service",
+      "[systemd-run] /usr/bin/sh -c \"trap \\\"sleep 1; exit 0\\\" TERM; while :; do sleep 0.2; done\"",
+      "loaded",
+      "failed",
+      "failed",
+      "",
+      "/org/freedesktop/systemd1/unit/wayseer_2drec_2dcrash_2eservice",
+      0,
+      "",
+      "/"
+    ],
+    "journal": [
+      {
+        "__CURSOR": "s=aa0bd4e1959648a1bc0394fa5d54503a;i=1ddac;b=b3901362b1b84d68980cb140a28a5022;m=e4e7cc7f8;t=65c5c65c4f62a;x=9360e056858bb6a4",
+        "__REALTIME_TIMESTAMP": "1790401774417450",
+        "PRIORITY": "6",
+        "_PID": "1212",
+        "SYSLOG_IDENTIFIER": "systemd",
+        "MESSAGE": "Started [systemd-run] /usr/bin/sh -c \"trap \\\"sleep 1; exit 0\\\" TERM; while :; do sleep 0.2; done\".",
+        "MESSAGE_ID": "39f53479d3a045ac8e11786248231fbf",
+        "USER_UNIT": "wayseer-rec-crash.service",
+        "_SYSTEMD_USER_UNIT": "init.scope",
+        "JOB_TYPE": "start",
+        "JOB_RESULT": "done"
+      },
+      {
+        "__CURSOR": "s=aa0bd4e1959648a1bc0394fa5d54503a;i=1ddae;b=b3901362b1b84d68980cb140a28a5022;m=e4e7d4ae4;t=65c5c65c57915;x=24f8c6d3ba66ec04",
+        "__REALTIME_TIMESTAMP": "1790401774450965",
+        "PRIORITY": "4",
+        "_PID": "1212",
+        "SYSLOG_IDENTIFIER": "systemd",
+        "MESSAGE": "wayseer-rec-crash.service: Main process exited, code=killed, status=9/KILL",
+        "MESSAGE_ID": "98e322203f7a4ed290d09fe03c09fe15",
+        "USER_UNIT": "wayseer-rec-crash.service",
+        "_SYSTEMD_USER_UNIT": "init.scope",
+        "EXIT_CODE": "killed",
+        "EXIT_STATUS": "9"
+      },
+      {
+        "__CURSOR": "s=aa0bd4e1959648a1bc0394fa5d54503a;i=1ddaf;b=b3901362b1b84d68980cb140a28a5022;m=e4e7d4c0f;t=65c5c65c57a41;x=89f5e31a9e6d4252",
+        "__REALTIME_TIMESTAMP": "1790401774451265",
+        "PRIORITY": "4",
+        "_PID": "1212",
+        "SYSLOG_IDENTIFIER": "systemd",
+        "MESSAGE": "wayseer-rec-crash.service: Failed with result 'signal'.",
+        "MESSAGE_ID": "d9b373ed55a64feb8242e02dbe79a49c",
+        "USER_UNIT": "wayseer-rec-crash.service",
+        "_SYSTEMD_USER_UNIT": "init.scope",
+        "UNIT_RESULT": "signal"
+      }
+    ]
+  },
+  "oneshot": {
+    "before": {
+      "ActiveState": {
+        "type": "s",
+        "data": "inactive"
+      },
+      "SubState": {
+        "type": "s",
+        "data": "dead"
+      },
+      "UnitFileState": {
+        "type": "s",
+        "data": "transient"
+      },
+      "ActiveEnterTimestamp": {
+        "type": "t",
+        "data": 0
+      },
+      "InactiveEnterTimestamp": {
+        "type": "t",
+        "data": 1790401776000214
+      },
+      "TriggeredBy": {
+        "type": "as",
+        "data": []
+      },
+      "Type": {
+        "type": "s",
+        "data": "oneshot"
+      },
+      "RemainAfterExit": {
+        "type": "b",
+        "data": false
+      },
+      "Result": {
+        "type": "s",
+        "data": "success"
+      },
+      "ExecMainCode": {
+        "type": "i",
+        "data": 1
+      },
+      "ExecMainStatus": {
+        "type": "i",
+        "data": 0
+      }
+    },
+    "during": null,
+    "after": {
+      "ActiveState": {
+        "type": "s",
+        "data": "inactive"
+      },
+      "SubState": {
+        "type": "s",
+        "data": "dead"
+      },
+      "UnitFileState": {
+        "type": "s",
+        "data": "transient"
+      },
+      "ActiveEnterTimestamp": {
+        "type": "t",
+        "data": 0
+      },
+      "InactiveEnterTimestamp": {
+        "type": "t",
+        "data": 1790401776000214
+      },
+      "TriggeredBy": {
+        "type": "as",
+        "data": []
+      },
+      "Type": {
+        "type": "s",
+        "data": "oneshot"
+      },
+      "RemainAfterExit": {
+        "type": "b",
+        "data": false
+      },
+      "Result": {
+        "type": "s",
+        "data": "success"
+      },
+      "ExecMainCode": {
+        "type": "i",
+        "data": 1
+      },
+      "ExecMainStatus": {
+        "type": "i",
+        "data": 0
+      }
+    },
+    "listed_after": [
+      "wayseer-rec-oneshot.service",
+      "[systemd-run] /usr/bin/sh -c \"sleep 1\"",
+      "loaded",
+      "inactive",
+      "dead",
+      "",
+      "/org/freedesktop/systemd1/unit/wayseer_2drec_2doneshot_2eservice",
+      0,
+      "",
+      "/"
+    ],
+    "journal": [
+      {
+        "__CURSOR": "s=aa0bd4e1959648a1bc0394fa5d54503a;i=1ddb0;b=b3901362b1b84d68980cb140a28a5022;m=e4e857572;t=65c5c65cda3a4;x=c010a17e149742ef",
+        "__REALTIME_TIMESTAMP": "1790401774986148",
+        "PRIORITY": "6",
+        "_PID": "1212",
+        "SYSLOG_IDENTIFIER": "systemd",
+        "MESSAGE": "Starting [systemd-run] /usr/bin/sh -c \"sleep 1\"...",
+        "MESSAGE_ID": "7d4958e842da4a758f6c1cdc7b36dcc5",
+        "USER_UNIT": "wayseer-rec-oneshot.service",
+        "_SYSTEMD_USER_UNIT": "init.scope",
+        "JOB_TYPE": "start"
+      },
+      {
+        "__CURSOR": "s=aa0bd4e1959648a1bc0394fa5d54503a;i=1ddb1;b=b3901362b1b84d68980cb140a28a5022;m=e4e94f140;t=65c5c65dd1f71;x=ac83682d6f1f39ed",
+        "__REALTIME_TIMESTAMP": "1790401776000881",
+        "PRIORITY": "6",
+        "_PID": "1212",
+        "SYSLOG_IDENTIFIER": "systemd",
+        "MESSAGE": "Finished [systemd-run] /usr/bin/sh -c \"sleep 1\".",
+        "MESSAGE_ID": "39f53479d3a045ac8e11786248231fbf",
+        "USER_UNIT": "wayseer-rec-oneshot.service",
+        "_SYSTEMD_USER_UNIT": "init.scope",
+        "JOB_TYPE": "start",
+        "JOB_RESULT": "done"
+      }
+    ]
+  },
+  "timer": {
+    "after": {
+      "ActiveState": {
+        "type": "s",
+        "data": "inactive"
+      },
+      "SubState": {
+        "type": "s",
+        "data": "dead"
+      },
+      "UnitFileState": {
+        "type": "s",
+        "data": "transient"
+      },
+      "ActiveEnterTimestamp": {
+        "type": "t",
+        "data": 0
+      },
+      "InactiveEnterTimestamp": {
+        "type": "t",
+        "data": 1790401780099767
+      },
+      "TriggeredBy": {
+        "type": "as",
+        "data": [
+          "wayseer-rec-timer.timer"
+        ]
+      },
+      "Type": {
+        "type": "s",
+        "data": "oneshot"
+      },
+      "RemainAfterExit": {
+        "type": "b",
+        "data": false
+      },
+      "Result": {
+        "type": "s",
+        "data": "success"
+      },
+      "ExecMainCode": {
+        "type": "i",
+        "data": 1
+      },
+      "ExecMainStatus": {
+        "type": "i",
+        "data": 0
+      }
+    },
+    "listed_after": [
+      "wayseer-rec-timer.service",
+      "[systemd-run] /usr/bin/sh -c \"sleep 1\"",
+      "loaded",
+      "inactive",
+      "dead",
+      "",
+      "/org/freedesktop/systemd1/unit/wayseer_2drec_2dtimer_2eservice",
+      0,
+      "",
+      "/"
+    ],
+    "journal": [
+      {
+        "__CURSOR": "s=aa0bd4e1959648a1bc0394fa5d54503a;i=1ddb6;b=b3901362b1b84d68980cb140a28a5022;m=e4ec3f2c0;t=65c5c660c20f2;x=f7206cdfa75d2185",
+        "__REALTIME_TIMESTAMP": "1790401779081458",
+        "PRIORITY": "6",
+        "_PID": "1212",
+        "SYSLOG_IDENTIFIER": "systemd",
+        "MESSAGE": "Starting [systemd-run] /usr/bin/sh -c \"sleep 1\"...",
+        "MESSAGE_ID": "7d4958e842da4a758f6c1cdc7b36dcc5",
+        "USER_UNIT": "wayseer-rec-timer.service",
+        "_SYSTEMD_USER_UNIT": "init.scope",
+        "JOB_TYPE": "start"
+      },
+      {
+        "__CURSOR": "s=aa0bd4e1959648a1bc0394fa5d54503a;i=1ddb7;b=b3901362b1b84d68980cb140a28a5022;m=e4ed37d7a;t=65c5c661babac;x=b1156043d8b48c44",
+        "__REALTIME_TIMESTAMP": "1790401780100012",
+        "PRIORITY": "6",
+        "_PID": "1212",
+        "SYSLOG_IDENTIFIER": "systemd",
+        "MESSAGE": "Finished [systemd-run] /usr/bin/sh -c \"sleep 1\".",
+        "MESSAGE_ID": "39f53479d3a045ac8e11786248231fbf",
+        "USER_UNIT": "wayseer-rec-timer.service",
+        "_SYSTEMD_USER_UNIT": "init.scope",
+        "JOB_TYPE": "start",
+        "JOB_RESULT": "done"
+      }
+    ]
+  }
+}

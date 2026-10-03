@@ -30,7 +30,7 @@ func newFakeSystem(t *testing.T) *fakeSystem {
 	t.Helper()
 	f := &fakeSystem{props: map[string]map[string]any{}, depCalls: map[string]int{}}
 	var reply struct{ Data [][][]any }
-	readJSON(t, "../../testdata/systemd/list-units.json", &reply)
+	readJSON(t, "testdata/systemd/list-units.json", &reply)
 	for _, r := range reply.Data[0] {
 		f.list = append(f.list, unitReply{
 			Name: r[0].(string), Description: r[1].(string), LoadState: r[2].(string),
@@ -38,7 +38,7 @@ func newFakeSystem(t *testing.T) *fakeSystem {
 		})
 	}
 	var props map[string]map[string]busJSON
-	readJSON(t, "../../testdata/systemd/dependencies.json", &props)
+	readJSON(t, "testdata/systemd/dependencies.json", &props)
 	for name, p := range props {
 		f.setProps(t, name, p)
 	}

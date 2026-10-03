@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const fixture = "../../testdata/procfs"
+const fixture = "testdata/procfs"
 
 func readFixture(t *testing.T, name string) []byte {
 	t.Helper()

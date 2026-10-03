@@ -22,7 +22,7 @@ type stopRecording struct {
 func recordings(t *testing.T) map[string]stopRecording {
 	t.Helper()
 	var recs map[string]stopRecording
-	readJSON(t, "../../testdata/systemd/stops.json", &recs)
+	readJSON(t, "testdata/systemd/stops.json", &recs)
 	return recs
 }
 

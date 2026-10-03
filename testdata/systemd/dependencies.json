@@ -1,0 +1,192 @@
+{
+ "basic.target": {
+  "Requires": {
+   "type": "as",
+   "data": [
+    "sysinit.target"
+   ]
+  },
+  "Requisite": {
+   "type": "as",
+   "data": []
+  },
+  "Wants": {
+   "type": "as",
+   "data": [
+    "sockets.target",
+    "timers.target"
+   ]
+  },
+  "BindsTo": {
+   "type": "as",
+   "data": []
+  }
+ },
+ "multi-user.target": {
+  "Requires": {
+   "type": "as",
+   "data": [
+    "basic.target"
+   ]
+  },
+  "Requisite": {
+   "type": "as",
+   "data": []
+  },
+  "Wants": {
+   "type": "as",
+   "data": [
+    "sshd.service",
+    "cups.service",
+    "backup.timer",
+    "nginx.service"
+   ]
+  },
+  "BindsTo": {
+   "type": "as",
+   "data": []
+  }
+ },
+ "sshd.service": {
+  "Requires": {
+   "type": "as",
+   "data": [
+    "system.slice"
+   ]
+  },
+  "Requisite": {
+   "type": "as",
+   "data": []
+  },
+  "Wants": {
+   "type": "as",
+   "data": [
+    "sshdgenkeys.service"
+   ]
+  },
+  "BindsTo": {
+   "type": "as",
+   "data": []
+  }
+ },
+ "cups.service": {
+  "Requires": {
+   "type": "as",
+   "data": [
+    "cups.socket"
+   ]
+  },
+  "Requisite": {
+   "type": "as",
+   "data": []
+  },
+  "Wants": {
+   "type": "as",
+   "data": []
+  },
+  "BindsTo": {
+   "type": "as",
+   "data": []
+  }
+ },
+ "cups.socket": {
+  "Requires": {
+   "type": "as",
+   "data": [
+    "sysinit.target"
+   ]
+  },
+  "Requisite": {
+   "type": "as",
+   "data": []
+  },
+  "Wants": {
+   "type": "as",
+   "data": []
+  },
+  "BindsTo": {
+   "type": "as",
+   "data": []
+  }
+ },
+ "backup.timer": {
+  "Requires": {
+   "type": "as",
+   "data": [
+    "sysinit.target"
+   ]
+  },
+  "Requisite": {
+   "type": "as",
+   "data": []
+  },
+  "Wants": {
+   "type": "as",
+   "data": []
+  },
+  "BindsTo": {
+   "type": "as",
+   "data": []
+  }
+ },
+ "nginx.service": {
+  "Requires": {
+   "type": "as",
+   "data": []
+  },
+  "Requisite": {
+   "type": "as",
+   "data": [
+    "basic.target"
+   ]
+  },
+  "Wants": {
+   "type": "as",
+   "data": []
+  },
+  "BindsTo": {
+   "type": "as",
+   "data": [
+    "systemd-journald.service"
+   ]
+  }
+ },
+ "user@1000.service": {
+  "Requires": {
+   "type": "as",
+   "data": [
+    "user-runtime-dir@1000.service"
+   ]
+  },
+  "Requisite": {
+   "type": "as",
+   "data": []
+  },
+  "Wants": {
+   "type": "as",
+   "data": []
+  },
+  "BindsTo": {
+   "type": "as",
+   "data": []
+  }
+ },
+ "systemd-journald.service": {
+  "Requires": {
+   "type": "as",
+   "data": []
+  },
+  "Requisite": {
+   "type": "as",
+   "data": []
+  },
+  "Wants": {
+   "type": "as",
+   "data": []
+  },
+  "BindsTo": {
+   "type": "as",
+   "data": []
+  }
+ }
+}

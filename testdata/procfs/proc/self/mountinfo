@@ -1,0 +1,8 @@
+22 1 0:21 / /proc rw,nosuid,nodev,noexec,relatime shared:13 - proc proc rw
+23 1 0:22 / /sys rw,nosuid,nodev,noexec,relatime shared:2 - sysfs sysfs rw
+42 1 0:35 /@ / rw,noatime shared:1 - btrfs /dev/mapper/luks-0000 rw,compress=zstd:1,ssd,subvolid=256,subvol=/@
+62 42 0:35 /@home /home rw,noatime shared:179 - btrfs /dev/mapper/luks-0000 rw,compress=zstd:1,ssd,subvolid=257,subvol=/@home
+66 42 0:35 /@log /var/log rw,noatime shared:169 - btrfs /dev/mapper/luks-0000 rw,compress=zstd:1,ssd,subvolid=262,subvol=/@log
+223 42 259:1 / /boot rw,relatime shared:189 - vfat /dev/nvme0n1p1 rw,fmask=0077,dmask=0077
+90 42 0:40 / /tmp rw,nosuid,nodev shared:50 - tmpfs tmpfs rw,size=8192000k
+91 42 0:41 / /media/usb\040stick rw,relatime shared:51 - vfat /dev/sdz1 rw
