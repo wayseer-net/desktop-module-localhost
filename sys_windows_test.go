@@ -31,15 +31,7 @@ func TestWindowsLive(t *testing.T) {
 	if count[sdk.KindHost] != 1 || count[KindCPU] == 0 || count[KindMemory] != 1 || count[KindFilesystem] == 0 || count[sdk.KindInterface] == 0 {
 		t.Fatalf("read %v; want a host, CPUs, memory, a volume and an interface", count)
 	}
-	if count[sdk.KindProcess] < 10 || count[sdk.KindService] < 10 {
-		t.Errorf("read %v; want processes and running services", count)
-	}
-	if note := m.Health().Note; note != "" {
-		t.Errorf("note %q", note)
-	}
-	if _, ok := m.world.ents[ref(sdk.KindService, "RpcSs.service")]; !ok {
-		t.Error("RPC isn't listed as running")
-	}
+	checkLiveServices(t, m, count)
 	if name := host.Attrs["os"].Str(); !strings.HasPrefix(name, "Windows") {
 		t.Errorf("os is %q", name)
 	}
@@ -48,5 +40,19 @@ func TestWindowsLive(t *testing.T) {
 	}
 	if mem := latest(t, m, host.Ref, MetricMemUtil); mem <= 0 || mem > 100 {
 		t.Errorf("memory is %v%% used", mem)
+	}
+}
+
+// checkLiveServices wants processes, and running services with RPC among them.
+func checkLiveServices(t *testing.T, m *Module, count map[sdk.Kind]int) {
+	t.Helper()
+	if count[sdk.KindProcess] < 10 || count[sdk.KindService] < 10 {
+		t.Errorf("read %v; want processes and running services", count)
+	}
+	if note := m.Health().Note; note != "" {
+		t.Errorf("note %q", note)
+	}
+	if _, ok := m.world.ents[ref(sdk.KindService, "RpcSs.service")]; !ok {
+		t.Error("RPC isn't listed as running")
 	}
 }
