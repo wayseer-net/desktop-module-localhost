@@ -102,6 +102,8 @@ func readJSON(t *testing.T, path string, v any) {
 
 func (f *fakeSystem) connect(context.Context) (unitSource, error) { return f, f.connectErr }
 
+func (f *fakeSystem) name() string { return "systemd" }
+
 func (f *fakeSystem) units(context.Context) ([]unitReply, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

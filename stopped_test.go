@@ -141,3 +141,15 @@ func TestJournalEntriesAttachToAKeptUnit(t *testing.T) {
 		t.Errorf("entry attached to %s, want the stopped unit", got)
 	}
 }
+
+func TestUnitNewToALaterListingStarted(t *testing.T) {
+	f := newFakeSystem(t)
+	f.setState("sshd.service", "inactive", "dead")
+	m := systemModule(t, f, "")
+	pollAt(m, 1000)
+	if _, ok := m.world.ents[sshd]; ok {
+		t.Fatal("an inactive unit was listed")
+	}
+	f.setState("sshd.service", "active", "running")
+	wantStateEvent(t, pollAt(m, 1002), "started", "inactive", "active", sdk.SevInfo)
+}

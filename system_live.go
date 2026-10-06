@@ -39,6 +39,8 @@ func (liveSystem) connect(context.Context) (unitSource, error) {
 	return &busUnits{conn: conn}, nil
 }
 
+func (liveSystem) name() string { return "systemd" }
+
 type busUnits struct{ conn *dbus.Conn }
 
 func (b *busUnits) units(ctx context.Context) ([]unitReply, error) {

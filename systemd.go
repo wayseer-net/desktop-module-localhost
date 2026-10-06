@@ -22,9 +22,16 @@ const unitRetry = 30 * time.Second
 
 var errNoSystemd = errors.New("systemd not available")
 
-// system is the running machine's service manager and journal; tests replay recordings.
-type system interface {
+// unitSystem is a service manager whose units are listed: systemd, or Windows' service control
+// manager; tests replay recordings.
+type unitSystem interface {
 	connect(ctx context.Context) (unitSource, error)
+	name() string // as notes name it
+}
+
+// system is the running machine's systemd and journal.
+type system interface {
+	unitSystem
 	// journal runs journalctl with args; the stream ends with ctx, and Close reports why.
 	journal(ctx context.Context, args []string) (io.ReadCloser, error)
 }
@@ -43,6 +50,10 @@ type unitReply struct {
 	JobID                                                          uint32
 	JobType                                                        string
 	JobPath                                                        dbus.ObjectPath
+
+	// Windows only, so not in the D-Bus reply.
+	pid   int  // the service's process
+	ended bool // stopped cleanly, which Windows can't tell from a stop asked for
 }
 
 // unitDeps are the units a unit needs (hard) or merely wants (soft).
@@ -60,7 +71,8 @@ func depsFrom(prop func(name string) []string) unitDeps {
 // unitProps are what localhost reads of a unit besides its listing.
 type unitProps struct {
 	deps        unitDeps
-	fileState   string    // UnitFileState: enabled, static, disabled, transient...
+	enabled     bool      // started at boot
+	fileState   string    // UnitFileState: enabled, static, disabled, transient...; a Windows start type
 	svcType     string    // a service's Type: simple, oneshot...
 	remain      bool      // a service's RemainAfterExit
 	result      string    // a service's Result: success, signal, exit-code...
@@ -77,6 +89,7 @@ func propsFrom(get func(name string) any) unitProps {
 		deps: depsFrom(strs), fileState: str("UnitFileState"), svcType: str("Type"), result: str("Result"),
 		triggeredBy: strs("TriggeredBy"),
 	}
+	p.enabled = p.fileState == "enabled" || p.fileState == "enabled-runtime"
 	p.remain, _ = get("RemainAfterExit").(bool)
 	if us, _ := get("ActiveEnterTimestamp").(uint64); us > 0 {
 		p.activeSince = time.UnixMicro(int64(us))
@@ -87,8 +100,15 @@ func propsFrom(get func(name string) any) unitProps {
 type unit struct {
 	unitReply
 	props unitProps
-	// Why a unit that is not running stopped, decided when it did.
-	stopAsked, wanted bool
+	// Why a unit that is not running stopped, decided when it did: stopAsked when the stop was
+	// meant, requested when it was asked for rather than the unit ending in order by itself.
+	stopAsked, requested, wanted bool
+}
+
+// stopNote is when a unit's stop was seen, and whether it was asked for.
+type stopNote struct {
+	at        time.Time
+	requested bool
 }
 
 // cachedProps are a unit's properties as read while it was in one active state.
@@ -97,18 +117,19 @@ type cachedProps struct {
 	props  unitProps
 }
 
-// unitWatcher lists systemd units, keeping the last good listing across failures and units
+// unitWatcher lists units, keeping the last good listing across failures and units
 // that stopped for keep after they did.
 type unitWatcher struct {
-	sys     system // nil when units are not read
+	sys     unitSystem // nil when units are not read
 	types   []string
 	keep    time.Duration
 	src     unitSource
 	props   map[string]cachedProps
 	seen    map[string]*seenUnit // units listed this run
-	stops   map[string]time.Time // when a stop job was seen for a unit, until it starts again
+	stops   map[string]stopNote  // when a unit's stop was seen, until it starts again
 	changes []unitChange         // since last taken
 	last    []unit
+	listed  bool // a listing has been read, so units new to the next one have started
 	note    string
 	retry   time.Time
 	absent  bool // no systemd on this machine; not retried
@@ -127,13 +148,13 @@ type unitChange struct {
 	unit           unit // as it was after the change
 }
 
-func newUnitWatcher(sys system, types []string, keep time.Duration) unitWatcher {
+func newUnitWatcher(sys unitSystem, types []string, keep time.Duration) unitWatcher {
 	if len(types) == 0 {
 		sys = nil
 	}
 	return unitWatcher{
 		sys: sys, types: types, keep: keep,
-		props: map[string]cachedProps{}, seen: map[string]*seenUnit{}, stops: map[string]time.Time{},
+		props: map[string]cachedProps{}, seen: map[string]*seenUnit{}, stops: map[string]stopNote{},
 	}
 }
 
@@ -149,6 +170,12 @@ func (w *unitWatcher) read(ctx context.Context, now time.Time) []unit {
 	}
 	var out []unit
 	for _, u := range listed {
+		switch {
+		case u.JobType == "stop":
+			w.stopSeen(u.Name, now, true)
+		case u.ended:
+			w.stopSeen(u.Name, now, false)
+		}
 		if !w.wanted(u) {
 			continue
 		}
@@ -157,17 +184,14 @@ func (w *unitWatcher) read(ctx context.Context, now time.Time) []unit {
 			w.fail(err, now)
 			return w.last
 		}
-		if u.JobType == "stop" {
-			w.stopSeen(u.Name, now)
-		}
 		out = append(out, unit{unitReply: u, props: p})
 	}
 	out = w.remember(judge(out, w.stops), now)
 	maps.DeleteFunc(w.props, func(name string, _ cachedProps) bool {
 		return !slices.ContainsFunc(out, func(u unit) bool { return u.Name == name })
 	})
-	maps.DeleteFunc(w.stops, func(name string, _ time.Time) bool { return w.seen[name] == nil })
-	w.last, w.note = out, ""
+	maps.DeleteFunc(w.stops, func(name string, _ stopNote) bool { return w.seen[name] == nil })
+	w.last, w.note, w.listed = out, "", true
 	return out
 }
 
@@ -193,7 +217,7 @@ func (w *unitWatcher) connected(ctx context.Context, now time.Time) bool {
 
 // fail drops the connection so the next read after unitRetry reconnects.
 func (w *unitWatcher) fail(err error, now time.Time) {
-	w.note = "systemd: " + err.Error()
+	w.note = w.sys.name() + ": " + err.Error()
 	w.retry = now.Add(unitRetry)
 	w.close()
 }
@@ -205,12 +229,15 @@ func (w *unitWatcher) close() {
 	}
 }
 
-// remember notes each listed unit's state changes, and adds the units that have stopped
-// since they were listed, until keep has passed.
+// remember notes each listed unit's state changes, a unit new to a later listing having started
+// from inactive, and adds the units that have stopped since they were listed, until keep has
+// passed.
 func (w *unitWatcher) remember(listed []unit, now time.Time) []unit {
 	for _, u := range listed {
 		if s, ok := w.seen[u.Name]; ok {
 			w.changed(u, s.ActiveState, now)
+		} else if w.listed {
+			w.changed(u, "inactive", now)
 		}
 		w.seen[u.Name] = &seenUnit{unit: u}
 	}
@@ -277,16 +304,20 @@ func (w *unitWatcher) jobLogged(e journalEntry) {
 	switch {
 	case e.object == "":
 	case e.jobType == "stop":
-		w.stopSeen(e.object, e.at)
+		w.stopSeen(e.object, e.at, true)
 	case e.jobType == "start":
 		delete(w.stops, e.object)
 	}
 }
 
-func (w *unitWatcher) stopSeen(name string, at time.Time) {
-	if _, ok := w.stops[name]; !ok {
-		w.stops[name] = at
+// stopSeen keeps when a stop was first seen, and whether any sighting was a request.
+func (w *unitWatcher) stopSeen(name string, at time.Time, requested bool) {
+	n, ok := w.stops[name]
+	if !ok {
+		n.at = at
 	}
+	n.requested = n.requested || requested
+	w.stops[name] = n
 }
 
 // unitKind is a service for .service units and KindUnit for the rest, with the unit type.

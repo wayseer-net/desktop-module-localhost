@@ -3,7 +3,7 @@
 The `localhost` module of Wayseer Desktop: the machine Wayseer runs on. It lists the host, its
 CPUs, memory, disks, filesystems, network interfaces and processes, with series for their use.
 Where the machine runs systemd it adds the system units and their dependencies, and journal
-entries as events. On Linux it reads `/proc` and `/sys`; on macOS, sysctls and Mach calls; on
+entries as events; on Windows it adds the services, from the service control manager. On Linux it reads `/proc` and `/sys`; on macOS, sysctls and Mach calls; on
 Windows, Win32 calls through `golang.org/x/sys/windows`.
 
 ```

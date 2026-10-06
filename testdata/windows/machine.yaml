@@ -1,5 +1,5 @@
 # An invented Windows 11 machine, as the reader's calls answer. Times are in 100 ns units.
-# reads: what changes between two reads, two seconds apart.
+# reads: what changes from read to read, two seconds apart.
 hostname: WINBOX
 version: {major: 10, minor: 0, build: 26100, product: Windows 10 Pro, display: "24H2"}
 since_boot: 3h25m
@@ -20,6 +20,35 @@ interfaces:
     addrs: [192.0.2.10, "2001:db8::10"]
   - {index: 12, name: Wi-Fi, mac: "3c:22:fb:01:02:03", mtu: 1500, up: false}
   - {index: 23, name: vEthernet (WSL), mac: "00:15:5d:aa:bb:cc", mtu: 1500, up: true, addrs: [172.20.0.1]}
+# processes: what Toolhelp and each process's token say; a denied one can't be opened.
+# created is in Unix seconds; the machine booted at 87700 when read at 100000.
+processes:
+  0: {ppid: 0, exe: "[System Process]", denied: true}
+  4: {ppid: 0, exe: System, denied: true}
+  700: {ppid: 600, exe: services.exe, created: 87705, ws: 13107200, user: SYSTEM}
+  880: {ppid: 700, exe: svchost.exe, created: 87706, ws: 26214400, user: SYSTEM, command: 'C:\Windows\system32\svchost.exe -k DcomLaunch -p'}
+  1040: {ppid: 700, exe: svchost.exe, created: 87707, ws: 19660800, user: NETWORK SERVICE, command: 'C:\Windows\system32\svchost.exe -k RPCSS -p'}
+  1500: {ppid: 700, exe: svchost.exe, created: 87710, ws: 13107200, user: NETWORK SERVICE}
+  2900: {ppid: 700, exe: spoolsv.exe, created: 87720, ws: 13107200, user: SYSTEM, command: 'C:\Windows\System32\spoolsv.exe'}
+  3100: {ppid: 700, exe: WinBackup.exe, created: 87800, ws: 6553600, user: SYSTEM}
+  3300: {ppid: 700, exe: svchost.exe, created: 96000, ws: 6553600, user: SYSTEM}
+  3500: {ppid: 700, exe: ContosoSync.exe, created: 87730, ws: 6553600, user: SYSTEM}
+  3700: {ppid: 700, exe: SearchIndexer.exe, created: 100001, ws: 6553600, user: SYSTEM}
+  5200: {ppid: 5100, exe: explorer.exe, created: 88000, ws: 209715200, user: alex, command: 'C:\Windows\Explorer.EXE'}
+# services: the service control manager's configuration of each Win32 service. start is 2 for
+# automatic, 3 for manual and 4 for disabled; a dependency starting with + is a load-order group.
+services:
+  RpcSs: {display: Remote Procedure Call (RPC), start: 2, deps: [RpcEptMapper, DcomLaunch]}
+  RpcEptMapper: {display: RPC Endpoint Mapper, start: 2}
+  DcomLaunch: {display: DCOM Server Process Launcher, start: 2}
+  Spooler: {display: Print Spooler, start: 2, deps: [RPCSS, http]} # http is a driver
+  LanmanWorkstation: {display: Workstation, start: 2, group: NetworkProvider, deps: [Bowser, NSI]}
+  WinBackup: {display: Invented Backup Agent, start: 2, delayed: true, deps: [+NetworkProvider]}
+  WSearch: {display: Windows Search, start: 2, delayed: true, deps: [RpcSs]}
+  BITS: {display: Background Intelligent Transfer Service, start: 3, triggered: true, deps: [RpcSs]}
+  ContosoSync: {display: Contoso Sync, start: 2}
+  Fax: {display: Fax, start: 3}
+  RemoteRegistry: {display: Remote Registry, start: 4}
 reads:
   - system_times: {idle: 3600, kernel: 4000, user: 400}
     processors:
@@ -32,6 +61,19 @@ reads:
       7: {in: 1000000, out: 500000}
       12: {in: 0, out: 0}
       23: {in: 3000, out: 3000}
+    running: {0: 0, 4: 0, 700: 5000000, 880: 9000000, 1040: 7000000, 1500: 100000, 2900: 300000, 3100: 200000, 3300: 100000, 3500: 400000, 5200: 1000000}
+    services: # state 1 stopped, 3 stop pending, 4 running; exit 1077 is never started
+      RpcSs: {state: 4, pid: 1040}
+      RpcEptMapper: {state: 4, pid: 1040}
+      DcomLaunch: {state: 4, pid: 880}
+      Spooler: {state: 4, pid: 2900}
+      LanmanWorkstation: {state: 4, pid: 1500}
+      WinBackup: {state: 4, pid: 3100}
+      WSearch: {state: 1}
+      BITS: {state: 4, pid: 3300}
+      ContosoSync: {state: 4, pid: 3500}
+      Fax: {state: 1, exit: 1077}
+      RemoteRegistry: {state: 1, exit: 1077}
   - system_times: {idle: 6850, kernel: 7400, user: 1000}
     processors:
       - {idle: 1650, kernel: 1800, user: 300}
@@ -43,3 +85,40 @@ reads:
       7: {in: 1200000, out: 540000}
       12: {in: 0, out: 0}
       23: {in: 3000, out: 3000}
+    running: {0: 0, 4: 0, 700: 5000000, 880: 9000000, 1040: 7000000, 1500: 100000, 2900: 300000, 3100: 200000, 3500: 400000, 3700: 50000, 5200: 2000000}
+    services: # the spooler is asked to stop, BITS stops itself, ContosoSync crashes and Search starts
+      RpcSs: {state: 4, pid: 1040}
+      RpcEptMapper: {state: 4, pid: 1040}
+      DcomLaunch: {state: 4, pid: 880}
+      Spooler: {state: 3, pid: 2900}
+      LanmanWorkstation: {state: 4, pid: 1500}
+      WinBackup: {state: 4, pid: 3100}
+      WSearch: {state: 4, pid: 3700}
+      BITS: {state: 1}
+      ContosoSync: {state: 1, exit: 1067}
+      Fax: {state: 1, exit: 1077}
+      RemoteRegistry: {state: 1, exit: 1077}
+  - system_times: {idle: 6850, kernel: 7400, user: 1000}
+    processors:
+      - {idle: 1650, kernel: 1800, user: 300}
+      - {idle: 1400, kernel: 1600, user: 500}
+      - {idle: 1900, kernel: 2000, user: 100}
+      - {idle: 1900, kernel: 2000, user: 100}
+    memory: {total: 17179869184, avail: 6442450944}
+    counters:
+      7: {in: 1200000, out: 540000}
+      12: {in: 0, out: 0}
+      23: {in: 3000, out: 3000}
+    running: {0: 0, 4: 0, 700: 5000000, 880: 9000000, 1040: 7000000, 1500: 100000, 3100: 200000, 3700: 90000, 5200: 2000000}
+    services: # the spooler has stopped
+      RpcSs: {state: 4, pid: 1040}
+      RpcEptMapper: {state: 4, pid: 1040}
+      DcomLaunch: {state: 4, pid: 880}
+      Spooler: {state: 1}
+      LanmanWorkstation: {state: 4, pid: 1500}
+      WinBackup: {state: 4, pid: 3100}
+      WSearch: {state: 4, pid: 3700}
+      BITS: {state: 1}
+      ContosoSync: {state: 1, exit: 1067}
+      Fax: {state: 1, exit: 1077}
+      RemoteRegistry: {state: 1, exit: 1077}

@@ -5,8 +5,6 @@ package localhost
 import (
 	"errors"
 	"runtime"
-
-	"wayseer.dev/sdk"
 )
 
 const supported = false
@@ -15,5 +13,5 @@ var errUnsupported = errors.New("the localhost module reads /proc and /sys, whic
 
 func statfs(string) (fsUsage, error) { return fsUsage{}, errUnsupported }
 
-// nativeSource is nil: there is no reader for this OS's own interfaces yet.
-func nativeSource(*reader) (source, []sdk.Metric) { return nil, nil }
+// nativeSource has no source: there is no reader for this OS's own interfaces yet.
+func nativeSource(*reader) platform { return platform{} }

@@ -3,6 +3,7 @@ package localhost
 import (
 	"context"
 	"errors"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
@@ -24,7 +25,27 @@ type recordedRead struct {
 	Processors  []recordedTimes `yaml:"processors"`
 	Memory      struct{ Total, Avail uint64 }
 	Counters    map[int]struct{ In, Out uint64 }
+	Running     map[uint32]uint64 // CPU time by pid
+	Services    map[string]recordedStatus
 }
+
+type recordedProcess struct {
+	PPID               uint32
+	Exe, User, Command string
+	Created            int64
+	WS                 uint64 `yaml:"ws"`
+	Denied             bool
+}
+
+type recordedService struct {
+	Display            string
+	Start              uint32
+	Delayed, Triggered bool
+	Deps               []string
+	Group              string
+}
+
+type recordedStatus struct{ State, PID, Exit, Specific uint32 }
 
 type recordedDrive struct {
 	Root, FSType       string
@@ -50,6 +71,8 @@ type recordedWindows struct {
 	SinceBoot  time.Duration `yaml:"since_boot"`
 	Drives     []recordedDrive
 	Interfaces []recordedInterface
+	Processes  map[uint32]recordedProcess
+	Services   map[string]recordedService
 	Reads      []recordedRead
 	read       int
 }
@@ -164,12 +187,76 @@ func (w *recordedWindows) addrs() map[string][]string {
 	return out
 }
 
+var errDenied = errors.New("access is denied")
+
+func (w *recordedWindows) processes() ([]winProcess, error) {
+	var out []winProcess
+	for _, pid := range slices.Sorted(maps.Keys(w.now().Running)) {
+		out = append(out, winProcess{pid: pid, ppid: w.Processes[pid].PPID, exe: w.Processes[pid].Exe})
+	}
+	return out, nil
+}
+
+func (w *recordedWindows) process(pid uint32) (recordedProcess, error) {
+	if p := w.Processes[pid]; !p.Denied {
+		return p, nil
+	}
+	return recordedProcess{}, errDenied
+}
+
+func (w *recordedWindows) processTimes(pid uint32) (winProcTimes, error) {
+	p, err := w.process(pid)
+	return winProcTimes{created: time.Unix(p.Created, 0), cpu: w.now().Running[pid], workingSet: p.WS}, err
+}
+
+func (w *recordedWindows) processUser(pid uint32) (string, error) {
+	p, err := w.process(pid)
+	return p.User, err
+}
+
+func (w *recordedWindows) processCommand(pid uint32) (string, error) {
+	p, err := w.process(pid)
+	return p.Command, err
+}
+
+// recordedSCM answers the service control manager's calls from the recording.
+type recordedSCM struct{ w *recordedWindows }
+
+func (s recordedSCM) services() ([]winService, error) {
+	var out []winService
+	for _, name := range slices.Sorted(maps.Keys(s.w.Services)) {
+		st := s.w.now().Services[name]
+		out = append(out, winService{
+			name: name, display: s.w.Services[name].Display,
+			state: st.State, pid: st.PID, exit: st.Exit, specific: st.Specific,
+		})
+	}
+	return out, nil
+}
+
+func (s recordedSCM) config(name string) (winServiceConfig, error) {
+	c, ok := s.w.Services[name]
+	if !ok {
+		return winServiceConfig{}, errors.New("the specified service does not exist as an installed service")
+	}
+	return winServiceConfig{start: c.Start, delayed: c.Delayed, triggered: c.Triggered, deps: c.Deps, group: c.Group}, nil
+}
+
+func (recordedSCM) close() {}
+
+// windowsPlatform reads the recorded Windows machine and its services.
+func windowsPlatform(w *recordedWindows) func(*reader) platform {
+	return func(r *reader) platform {
+		open := func() (scmAPI, error) { return recordedSCM{w}, nil }
+		return platform{src: newWinReader(w, r), metrics: winCatalogue(), units: scmSystem{open: open}}
+	}
+}
+
 // windowsModule is a module reading the recorded Windows machine.
 func windowsModule(t *testing.T, w *recordedWindows, opts string) *Module {
 	t.Helper()
 	m := New()
-	m.addrs, m.system = w.addrs, nil
-	m.native = func(r *reader) (source, []sdk.Metric) { return newWinReader(w, r), winCatalogue() }
+	m.addrs, m.system, m.native = w.addrs, nil, windowsPlatform(w)
 	configure(t, m, opts)
 	return m
 }
@@ -292,8 +379,7 @@ func TestWindowsConformance(t *testing.T) {
 		New: func() sdk.Module {
 			w := loadRecordedWindows(t)
 			m := New()
-			m.addrs, m.system = w.addrs, nil
-			m.native = func(r *reader) (source, []sdk.Metric) { return newWinReader(w, r), winCatalogue() }
+			m.addrs, m.system, m.native = w.addrs, nil, windowsPlatform(w)
 			return m
 		},
 		Name:    "local",

@@ -14,8 +14,6 @@ import (
 	"time"
 	"unsafe"
 
-	"wayseer.dev/sdk"
-
 	"github.com/ebitengine/purego"
 	"golang.org/x/net/route"
 	"golang.org/x/sys/unix"
@@ -55,11 +53,11 @@ func statfs(path string) (fsUsage, error) {
 }
 
 // nativeSource reads macOS through sysctls and Mach calls.
-func nativeSource(r *reader) (source, []sdk.Metric) {
-	return &macReader{
+func nativeSource(r *reader) platform {
+	return platform{src: &macReader{
 		procs: r.procs, cmds: r.cmds, addrs: r.addrs, pageSize: uint64(os.Getpagesize()),
 		users: map[uint32]string{}, commands: map[procKey]string{},
-	}, macCatalogue()
+	}, metrics: macCatalogue()}
 }
 
 // Mach and libproc calls, from libSystem.

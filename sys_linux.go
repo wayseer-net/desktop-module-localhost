@@ -1,10 +1,6 @@
 package localhost
 
-import (
-	"syscall"
-
-	"wayseer.dev/sdk"
-)
+import "syscall"
 
 const supported = true
 
@@ -20,5 +16,5 @@ func statfs(path string) (fsUsage, error) {
 	return fsUsage{total: st.Blocks * bs, used: (st.Blocks - st.Bfree) * bs, avail: st.Bavail * bs}, nil
 }
 
-// nativeSource is nil: Linux is read through /proc and /sys.
-func nativeSource(*reader) (source, []sdk.Metric) { return nil, nil }
+// nativeSource has no source: Linux is read through /proc and /sys.
+func nativeSource(*reader) platform { return platform{} }

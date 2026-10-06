@@ -31,7 +31,7 @@ type Module struct {
 	// Replaceable for tests; default to the running system.
 	statfs       func(path string) (fsUsage, error)
 	addrs        func() map[string][]string
-	native       func(*reader) (source, []sdk.Metric)
+	native       func(*reader) platform
 	system       system
 	journalRetry time.Duration // wait before restarting journalctl
 
@@ -47,6 +47,14 @@ type Module struct {
 	events      *sdk.EventLog
 	journalNote string
 	running     bool
+}
+
+// platform is how a machine other than Linux is read: its source, the metrics it has, and its
+// service manager, if it is listed.
+type platform struct {
+	src     source
+	metrics []sdk.Metric
+	units   unitSystem
 }
 
 // New makes an unconfigured module.
@@ -83,13 +91,14 @@ func (m *Module) Configure(_ context.Context, cfg sdk.Config) error {
 		procs: o.Processes, cmds: o.Commands, details: map[procKey]procDetail{},
 	}
 	m.reader, m.metrics = r, catalogue
+	var units unitSystem = sys
 	if o.Root == "/" {
-		if n, metrics := m.native(r); n != nil {
-			m.reader, m.metrics, sys = n, metrics, nil // not Linux: no procfs, systemd or journal
+		if p := m.native(r); p.src != nil {
+			m.reader, m.metrics, units, sys = p.src, p.metrics, p.units, nil // not Linux: no procfs, systemd or journal
 		}
 	}
 	m.units.close()
-	m.units, m.journal = newUnitWatcher(sys, o.Units, o.KeepStopped), sys
+	m.units, m.journal = newUnitWatcher(units, o.Units, o.KeepStopped), sys
 	if o.priority < 0 {
 		m.journal = nil
 	}

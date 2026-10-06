@@ -55,6 +55,7 @@ type process struct {
 	pidStat
 	command, user, cgroup string
 	unmeasured            bool // its CPU and memory could not be read, so it has no points
+	startUnknown          bool // nor when it started, which Windows hides with the rest
 }
 
 // procKey identifies a process across pid reuse.

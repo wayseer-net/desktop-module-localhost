@@ -3,7 +3,6 @@ package localhost
 import (
 	"slices"
 	"strings"
-	"time"
 
 	"wayseer.dev/sdk"
 )
@@ -14,20 +13,20 @@ var (
 )
 
 // judge decides, for each listed unit, whether it should be running and whether a stop was asked.
-func judge(listed []unit, stops map[string]time.Time) []unit {
+func judge(listed []unit, stops map[string]stopNote) []unit {
 	for i := range listed {
 		listed[i] = judged(listed[i], listed, stops)
 	}
 	return listed
 }
 
-// judged is u with a stop asked since it last started, and whether it should be running: it is
+// judged is u with a stop seen since it last started, and whether it should be running: it is
 // enabled or an active target wants it, and it is neither a oneshot nor started when due.
-func judged(u unit, listed []unit, stops map[string]time.Time) unit {
-	at, ok := stops[u.Name]
-	u.stopAsked = ok && !at.Before(u.props.activeSince)
-	enabled := u.props.fileState == "enabled" || u.props.fileState == "enabled-runtime"
-	u.wanted = (enabled || pulled(u.Name, listed)) && !u.stopAsked && !u.oneshot() && !whenDue(u, listed)
+func judged(u unit, listed []unit, stops map[string]stopNote) unit {
+	n, ok := stops[u.Name]
+	u.stopAsked = ok && !n.at.Before(u.props.activeSince)
+	u.requested = u.stopAsked && n.requested
+	u.wanted = (u.props.enabled || pulled(u.Name, listed)) && !u.stopAsked && !u.oneshot() && !whenDue(u, listed)
 	return u
 }
 
@@ -65,8 +64,10 @@ func (u unit) status() sdk.Status {
 // endMessage says how a unit became inactive.
 func (u unit) endMessage() string {
 	switch {
-	case u.stopAsked:
+	case u.requested:
 		return "stopped by request"
+	case u.stopAsked:
+		return "stopped"
 	case u.wanted:
 		return "exited unexpectedly"
 	case u.oneshot():

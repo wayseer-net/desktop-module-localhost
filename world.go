@@ -186,21 +186,37 @@ func (b *builder) processes(s *sample) {
 	for _, p := range s.procs {
 		listed[p.pid] = true
 	}
+	services := servicesByPID(s.units)
 	for _, p := range s.procs {
-		started := s.stat.boot.Add(time.Duration(p.start) * time.Second / clockTick)
 		a := pruned(map[string]sdk.Value{
-			"pid": num(p.pid), "ppid": num(p.ppid), "user": sdk.String(p.user), "started": sdk.Time(started),
-			"command": sdk.String(p.command),
+			"pid": num(p.pid), "ppid": num(p.ppid), "user": sdk.String(p.user), "command": sdk.String(p.command),
 		})
+		if !p.startUnknown {
+			a["started"] = sdk.Time(s.stat.boot.Add(time.Duration(p.start) * time.Second / clockTick))
+		}
 		r := b.add(sdk.KindProcess, strconv.Itoa(p.pid), p.comm, okStatus, a)
 		b.link(r, b.w.host, sdk.RelRunsOn)
 		if u, ok := b.unitOfCgroup(p.cgroup); ok {
 			b.link(r, u, sdk.RelMemberOf)
 		}
+		for _, name := range services[p.pid] {
+			b.link(r, b.unitRef(name), sdk.RelMemberOf)
+		}
 		if listed[p.ppid] {
 			b.link(b.ref(sdk.KindProcess, strconv.Itoa(p.ppid)), r, sdk.RelParentOf)
 		}
 	}
+}
+
+// servicesByPID are the running units by their process, which only Windows reports.
+func servicesByPID(us []unit) map[int][]string {
+	out := map[int][]string{}
+	for _, u := range us {
+		if u.pid > 0 && u.ActiveState != "inactive" && u.ActiveState != "failed" {
+			out[u.pid] = append(out[u.pid], u.Name)
+		}
+	}
+	return out
 }
 
 func (b *builder) ref(kind sdk.Kind, native string) sdk.EntityRef {
