@@ -57,10 +57,13 @@ var macNatives = map[string]string{
 }
 
 // macCatalogue is the catalogue as macOS has it; a metric it lacks is left out, not zero.
-func macCatalogue() []sdk.Metric {
+func macCatalogue() []sdk.Metric { return catalogueFor(macNatives) }
+
+// catalogueFor is the catalogue with only the metrics in natives, each with its native source.
+func catalogueFor(natives map[string]string) []sdk.Metric {
 	var out []sdk.Metric
 	for _, m := range catalogue {
-		if native, ok := macNatives[m.Name]; ok {
+		if native, ok := natives[m.Name]; ok {
 			m.Native = native
 			out = append(out, m)
 		}
@@ -211,7 +214,11 @@ func (r *recorder) ref(kind sdk.Kind, native string) sdk.EntityRef {
 	return b.ref(kind, native)
 }
 
+// put records v, unless this platform's catalogue lacks the metric.
 func (r *recorder) put(ref sdk.EntityRef, metric string, v float64) {
+	if !applies(r.m.metrics, metric, ref.Kind()) {
+		return
+	}
 	key := sdk.SeriesRef{Entity: ref, Metric: metric}
 	h := r.m.series[key]
 	if h == nil {

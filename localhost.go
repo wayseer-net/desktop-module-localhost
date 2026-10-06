@@ -31,6 +31,7 @@ type Module struct {
 	// Replaceable for tests; default to the running system.
 	statfs       func(path string) (fsUsage, error)
 	addrs        func() map[string][]string
+	native       func(*reader) (source, []sdk.Metric)
 	system       system
 	journalRetry time.Duration // wait before restarting journalctl
 
@@ -50,7 +51,7 @@ type Module struct {
 
 // New makes an unconfigured module.
 func New() *Module {
-	return &Module{statfs: statfs, addrs: interfaceAddrs, system: liveSystem{}, journalRetry: 30 * time.Second, metrics: catalogue}
+	return &Module{statfs: statfs, addrs: interfaceAddrs, native: nativeSource, system: liveSystem{}, journalRetry: 30 * time.Second, metrics: catalogue}
 }
 
 // Info describes the module.
@@ -83,7 +84,7 @@ func (m *Module) Configure(_ context.Context, cfg sdk.Config) error {
 	}
 	m.reader, m.metrics = r, catalogue
 	if o.Root == "/" {
-		if n, metrics := nativeSource(r); n != nil {
+		if n, metrics := m.native(r); n != nil {
 			m.reader, m.metrics, sys = n, metrics, nil // not Linux: no procfs, systemd or journal
 		}
 	}

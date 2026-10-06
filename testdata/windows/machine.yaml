@@ -1,0 +1,45 @@
+# An invented Windows 11 machine, as the reader's calls answer. Times are in 100 ns units.
+# reads: what changes between two reads, two seconds apart.
+hostname: WINBOX
+version: {major: 10, minor: 0, build: 26100, product: Windows 10 Pro, display: "24H2"}
+since_boot: 3h25m
+drives:
+  - {root: 'C:\', type: 3, fstype: NTFS, total: 549755813888, free: 214748364800, avail: 214748364800}
+  - {root: 'D:\', type: 5} # a DVD drive
+  - {root: 'E:\', type: 2} # a USB stick
+  - {root: 'F:\', type: 3, fstype: NTFS, total: 1099511627776, free: 107374182400, avail: 107374182400}
+  - {root: 'G:\', type: 3, locked: true} # BitLocker, not unlocked
+  - {root: 'Z:\', type: 4} # a network share
+interfaces:
+  - {index: 1, name: Loopback Pseudo-Interface 1, mtu: -1, up: true, loopback: true}
+  - index: 7
+    name: Ethernet
+    mac: "00:15:5d:0a:0b:0c"
+    mtu: 1500
+    up: true
+    addrs: [192.0.2.10, "2001:db8::10"]
+  - {index: 12, name: Wi-Fi, mac: "3c:22:fb:01:02:03", mtu: 1500, up: false}
+  - {index: 23, name: vEthernet (WSL), mac: "00:15:5d:aa:bb:cc", mtu: 1500, up: true, addrs: [172.20.0.1]}
+reads:
+  - system_times: {idle: 3600, kernel: 4000, user: 400}
+    processors:
+      - {idle: 900, kernel: 1000, user: 100}
+      - {idle: 900, kernel: 1000, user: 100}
+      - {idle: 900, kernel: 1000, user: 100}
+      - {idle: 900, kernel: 1000, user: 100}
+    memory: {total: 17179869184, avail: 6442450944}
+    counters:
+      7: {in: 1000000, out: 500000}
+      12: {in: 0, out: 0}
+      23: {in: 3000, out: 3000}
+  - system_times: {idle: 6850, kernel: 7400, user: 1000}
+    processors:
+      - {idle: 1650, kernel: 1800, user: 300}
+      - {idle: 1400, kernel: 1600, user: 500}
+      - {idle: 1900, kernel: 2000, user: 100}
+      - {idle: 1900, kernel: 2000, user: 100}
+    memory: {total: 17179869184, avail: 6442450944}
+    counters:
+      7: {in: 1200000, out: 540000}
+      12: {in: 0, out: 0}
+      23: {in: 3000, out: 3000}
