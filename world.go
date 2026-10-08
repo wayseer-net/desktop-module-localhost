@@ -70,6 +70,7 @@ func (m *Module) buildWorld(s *sample) world {
 	}
 	b.units(s.units)
 	b.processes(s)
+	b.w.group()
 	return b.w
 }
 
