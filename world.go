@@ -16,6 +16,10 @@ const (
 	KindFilesystem sdk.Kind = "localhost/filesystem"
 )
 
+// AttrLocalPID is a process's pid on the machine Wayseer runs on, which identity rules match
+// against the pids of Wayseer's own module processes; another root's processes lack it.
+const AttrLocalPID = "local.pid"
+
 // clockTick is USER_HZ, which Linux fixes at 100 on every architecture it exports times for.
 const clockTick = 100
 
@@ -36,11 +40,12 @@ type world struct {
 type builder struct {
 	src      sdk.ModuleID
 	pageSize uint64
+	local    bool // the machine read is the one Wayseer runs on
 	w        world
 }
 
 func (m *Module) buildWorld(s *sample) world {
-	b := builder{src: m.name, pageSize: m.pageSize, w: world{ents: map[sdk.EntityRef]sdk.Entity{}, edges: map[sdk.EdgeKey]sdk.Edge{}}}
+	b := builder{src: m.name, pageSize: m.pageSize, local: m.opts.Root == "/", w: world{ents: map[sdk.EntityRef]sdk.Entity{}, edges: map[sdk.EdgeKey]sdk.Edge{}}}
 	b.w.host = b.hostEntity(s)
 	for i, c := range s.stat.cpus {
 		r := b.add(KindCPU, c.name, c.name, okStatus, map[string]sdk.Value{"index": num(i)})
@@ -191,6 +196,9 @@ func (b *builder) processes(s *sample) {
 		a := pruned(map[string]sdk.Value{
 			"pid": num(p.pid), "ppid": num(p.ppid), "user": sdk.String(p.user), "command": sdk.String(p.command),
 		})
+		if b.local {
+			a[AttrLocalPID] = num(p.pid)
+		}
 		if !p.startUnknown {
 			a["started"] = sdk.Time(s.stat.boot.Add(time.Duration(p.start) * time.Second / clockTick))
 		}

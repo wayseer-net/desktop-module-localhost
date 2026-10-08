@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -325,5 +326,26 @@ func TestSlashIsThisMachinesRootEverywhere(t *testing.T) {
 	o := defaults()
 	if err := o.validate(); err != nil || o.Root != "/" {
 		t.Errorf("root / validated to %q, %v; want / on every platform", o.Root, err)
+	}
+}
+
+func TestThisMachinesProcessesCarryTheirLocalPID(t *testing.T) {
+	if !supported {
+		t.Skip("this machine can't be read")
+	}
+	m := Fake()
+	configure(t, m, "root: /\nunits: []\njournal: off")
+	m.poll(t.Context(), time.Now())
+	me := m.world.ents[ref(sdk.KindProcess, strconv.Itoa(os.Getpid()))]
+	if got := me.Attrs[AttrLocalPID]; got.Num() != float64(os.Getpid()) {
+		t.Errorf("this test's process has %s %v; want its pid", AttrLocalPID, got)
+	}
+}
+
+func TestAnotherRootsProcessesHaveNoLocalPID(t *testing.T) {
+	m := testModule(t, copyFixture(t), "")
+	m.poll(context.Background(), time.Unix(1000, 0))
+	if a := m.world.ents[ref(sdk.KindProcess, "1201")].Attrs; a[AttrLocalPID].Type() != sdk.TypeNone {
+		t.Errorf("a process under another root has %s %v", AttrLocalPID, a[AttrLocalPID])
 	}
 }
