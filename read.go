@@ -24,6 +24,11 @@ type sample struct {
 	nics  []nic
 	procs []process
 	units []unit // from systemd, not the file tree
+
+	socks    []socket       // nil unless connections are read
+	owners   map[uint32]int // socket inode to pid, where it can be read
+	sockNote string         // what kept sockets from being read in full
+	conns    connView       // the sockets compared with the previous sample's
 }
 
 type hostInfo struct{ name, kernel, os string }
@@ -82,6 +87,7 @@ type reader struct {
 	details    map[procKey]procDetail // cached per process, since they rarely change
 	owners     map[uint32]int         // socket inode to pid as last scanned; 0 for unowned
 	ownerScans int
+	sockets    func() ([]socket, string, error) // nil when connections are not read
 }
 
 // read takes a sample; only /proc/stat and /proc/meminfo are required.
@@ -98,6 +104,9 @@ func (r *reader) read(now time.Time) (*sample, error) {
 	s.nics = r.nics()
 	if r.procs {
 		s.procs = r.processes()
+	}
+	if r.sockets != nil {
+		r.readSockets(s)
 	}
 	return s, nil
 }

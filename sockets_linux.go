@@ -17,7 +17,7 @@ func liveSockets() (out []socket, note string, err error) {
 	if err != nil {
 		return nil, "", fmt.Errorf("sock_diag: %w", err)
 	}
-	defer unix.Close(fd)
+	defer func() { _ = unix.Close(fd) }()
 	buf := make([]byte, recvBuf)
 	seq := uint32(0)
 	for _, d := range []struct {
@@ -58,3 +58,5 @@ func dump(fd int, buf, req []byte, proto string) ([]socket, error) {
 		}
 	}
 }
+
+var socketSource = liveSockets

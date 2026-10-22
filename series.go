@@ -103,6 +103,7 @@ func (m *Module) record(w *world, cur, prev *sample) {
 	}
 	r.machine()
 	r.processes()
+	r.connections()
 	for ref := range m.series {
 		if _, ok := w.ents[ref.Entity]; !ok {
 			delete(m.series, ref)
@@ -223,7 +224,7 @@ func (r *recorder) put(ref sdk.EntityRef, metric string, v float64) {
 	h := r.m.series[key]
 	if h == nil {
 		keep := r.m.opts.History
-		if ref.Kind() == sdk.KindProcess {
+		if ref.Kind() == sdk.KindProcess || ref.Kind() == KindRemote {
 			keep = r.m.opts.ProcessHistory
 		}
 		h = sdk.NewRing(r.m.opts.points(keep))

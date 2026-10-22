@@ -1,6 +1,7 @@
 package localhost
 
 import (
+	"cmp"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -20,6 +21,10 @@ type options struct {
 	JournalBacklog int           `yaml:"journal_backlog"` // journal entries sent from before the start, up to 1000; default 100
 	KeepStopped    time.Duration `yaml:"keep_stopped"`    // how long a unit that stopped stays listed, up to 24h; default 1h
 
+	Connections     bool          `yaml:"connections"`      // list network connections and listening sockets, on Linux; default false
+	ConnectionLimit int           `yaml:"connection_limit"` // remote addresses listed, busiest first, 1 to 5000; default 500
+	ConnectionKeep  time.Duration `yaml:"connection_keep"`  // how long a remote stays listed after its last connection closes, up to 1h; default 1m
+
 	priority int // Journal parsed; -1 when off
 }
 
@@ -29,7 +34,7 @@ func defaults() options {
 	return options{
 		Interval: 2 * time.Second, History: time.Hour, Processes: true, ProcessHistory: 5 * time.Minute, Commands: true, Root: "/",
 		Units: []string{"service", "socket", "timer", "target", "path"}, Journal: "warning", JournalBacklog: 100,
-		KeepStopped: time.Hour,
+		KeepStopped: time.Hour, ConnectionLimit: 500, ConnectionKeep: time.Minute,
 	}
 }
 
@@ -56,7 +61,17 @@ func (o *options) validate() error {
 	if o.Root != "/" {
 		o.Root = filepath.Clean(o.Root)
 	}
-	return o.parseJournal()
+	return cmp.Or(o.validateConnections(), o.parseJournal())
+}
+
+func (o *options) validateConnections() error {
+	switch {
+	case o.ConnectionLimit < 1 || o.ConnectionLimit > 5000:
+		return fmt.Errorf("connection_limit %d must be between 1 and 5000", o.ConnectionLimit)
+	case o.ConnectionKeep < 0 || o.ConnectionKeep > time.Hour:
+		return fmt.Errorf("connection_keep %v must be between 0 and 1h", o.ConnectionKeep)
+	}
+	return nil
 }
 
 func (o *options) parseJournal() error {

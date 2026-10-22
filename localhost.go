@@ -32,6 +32,7 @@ type Module struct {
 	statfs       func(path string) (fsUsage, error)
 	addrs        func() map[string][]string
 	native       func(*reader) platform
+	sockets      func() ([]socket, string, error) // nil where the OS has no reader
 	system       system
 	journalRetry time.Duration // wait before restarting journalctl
 
@@ -46,6 +47,7 @@ type Module struct {
 	series      map[sdk.SeriesRef]*sdk.Ring
 	events      *sdk.EventLog
 	journalNote string
+	conns       connState
 	running     bool
 }
 
@@ -59,7 +61,7 @@ type platform struct {
 
 // New makes an unconfigured module.
 func New() *Module {
-	return &Module{statfs: statfs, addrs: interfaceAddrs, native: nativeSource, system: liveSystem{}, journalRetry: 30 * time.Second, metrics: catalogue}
+	return &Module{statfs: statfs, addrs: interfaceAddrs, native: nativeSource, system: liveSystem{}, sockets: socketSource, journalRetry: 30 * time.Second, metrics: catalogue}
 }
 
 // Info describes the module.
@@ -82,9 +84,9 @@ func (m *Module) Configure(_ context.Context, cfg sdk.Config) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.name, m.opts, m.pageSize = cfg.Name, o, uint64(os.Getpagesize())
-	addrs, sys := m.addrs, m.system
+	addrs, sys, socks := m.addrs, m.system, m.sockets
 	if _, live := sys.(liveSystem); live && o.Root != "/" {
-		addrs, sys = nil, nil // another machine's tree: this one's addresses and services would be wrong
+		addrs, sys, socks = nil, nil, nil // another machine's tree: this one's addresses, services and sockets would be wrong
 	}
 	r := &reader{
 		fsys: os.DirFS(o.Root), root: o.Root, statfs: m.statfs, addrs: addrs,
@@ -94,7 +96,15 @@ func (m *Module) Configure(_ context.Context, cfg sdk.Config) error {
 	var units unitSystem = sys
 	if o.Root == "/" {
 		if p := m.native(r); p.src != nil {
-			m.reader, m.metrics, units, sys = p.src, p.metrics, p.units, nil // not Linux: no procfs, systemd or journal
+			m.reader, m.metrics, units, sys, socks = p.src, p.metrics, p.units, nil, nil // not Linux: no procfs, systemd, journal or sock_diag
+		}
+	}
+	m.conns = connState{}
+	if o.Connections {
+		r.sockets = socks
+		m.conns.note = connsNote(socks != nil)
+		if socks != nil {
+			m.metrics = withConnections(m.metrics)
 		}
 	}
 	m.units.close()
@@ -167,6 +177,7 @@ func (m *Module) poll(ctx context.Context, now time.Time) *sdk.ChangeSet {
 	s, err := m.reader.read(now)
 	if err == nil {
 		s.units = m.units.read(ctx, now)
+		s.conns, m.conns.read = viewSample(s, m.last), s.sockNote
 		m.world = m.buildWorld(s)
 		m.record(&m.world, s, m.last)
 		m.last = s
@@ -174,6 +185,9 @@ func (m *Module) poll(ctx context.Context, now time.Time) *sdk.ChangeSet {
 	m.health.Store(&sdk.Health{Err: err, Note: m.note()})
 	cs := m.tracker.Changes(m.world.ents, m.world.edges, now)
 	cs.Events = m.stateEvents(m.units.takeChanges())
+	if err == nil {
+		cs.Events = append(cs.Events, m.listenEvents(s)...)
+	}
 	m.events.Add(cs.Events...)
 	return cs
 }
@@ -181,7 +195,7 @@ func (m *Module) poll(ctx context.Context, now time.Time) *sdk.ChangeSet {
 // note joins what limits the view without being an error: systemd or the journal missing.
 func (m *Module) note() string {
 	var notes []string
-	for _, n := range []string{m.units.note, m.journalNote} {
+	for _, n := range []string{m.units.note, m.journalNote, m.conns.text()} {
 		if n != "" {
 			notes = append(notes, n)
 		}

@@ -14,6 +14,7 @@ const (
 	KindCPU        sdk.Kind = "localhost/cpu"
 	KindMemory     sdk.Kind = "localhost/memory"
 	KindFilesystem sdk.Kind = "localhost/filesystem"
+	KindRemote     sdk.Kind = "localhost/remote" // an address this machine has connections with
 )
 
 // AttrLocalPID is a process's pid on the machine Wayseer runs on, which identity rules match
@@ -34,6 +35,7 @@ type world struct {
 	ents  map[sdk.EntityRef]sdk.Entity
 	edges map[sdk.EdgeKey]sdk.Edge
 	host  sdk.EntityRef
+	flows map[flowKey]flow // the connections shown, for their series
 }
 
 // builder turns samples into entities owned by one module instance.
@@ -70,6 +72,9 @@ func (m *Module) buildWorld(s *sample) world {
 	}
 	b.units(s.units)
 	b.processes(s)
+	if s.socks != nil {
+		b.connections(m.conns.shown(s.conns, s.at, m.opts.ConnectionKeep, m.opts.ConnectionLimit), s.conns.listens)
+	}
 	b.w.group()
 	return b.w
 }

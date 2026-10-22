@@ -39,6 +39,8 @@ func (w *world) group() {
 		switch {
 		case hardware[e.Kind]:
 			g = "hardware"
+		case e.Kind == KindRemote:
+			g = "network"
 		case e.Kind == sdk.KindProcess && unitOf[r] == "":
 			g = "processes"
 		case e.Kind == sdk.KindProcess:

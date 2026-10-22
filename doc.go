@@ -19,6 +19,9 @@
 //	      journal: warning      # least severe priority sent as events (emerg ... debug), or off
 //	      journal_backlog: 100  # entries from before the start sent first
 //	      keep_stopped: 1h      # how long a unit that stopped stays listed; 0 for not at all
+//	      connections: false    # network connections and listening sockets, on Linux
+//	      connection_limit: 500 # remote addresses listed, busiest first
+//	      connection_keep: 1m   # how long a remote stays listed after its connections close
 //
 // Units never seen running are left out; one that stops stays for keep_stopped, and failed ones
 // stay. A unit that should be running (enabled, or wanted by an active target; not a oneshot, nor
@@ -27,5 +30,12 @@
 // one) leaves it unknown, "stopped", and a oneshot that ends is "finished". Other failed units
 // are critical. Each change of a unit's state is an event on it. A machine without
 // systemd, or a journal that cannot be read, shows as a note in Health rather than an error.
+//
+// With connections on, it reads TCP and UDP sockets over sock_diag, as ss does, and the process
+// holding each from /proc/<pid>/fd. Each remote address is an entity, joined to the process
+// talking to it by a talks_to edge that carries TCP's bytes per second; connections between
+// local processes join them directly. Without privileges, other users' sockets show on the
+// host. Listening sockets are an attribute, and a TCP listener opening or closing is an event.
+//
 // Parsing is kept apart from reading so the parsers are tested on captured files.
 package localhost

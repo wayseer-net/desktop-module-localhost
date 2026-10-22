@@ -7,6 +7,9 @@ import (
 	"strings"
 )
 
+// ephemeral is where Linux's default range of client ports starts.
+const ephemeral = 32768
+
 // portCap bounds the ports and listening sockets kept per flow or process.
 const portCap = 16
 
@@ -44,36 +47,10 @@ func viewConns(cur, prev []socket, owners map[uint32]int, elapsed float64, self 
 	for _, s := range prev {
 		before[s.cookie] = s
 	}
-	listeners := map[netip.AddrPort]int{}
+	c := classifier{listeners: v.collectListens(cur, owners), owners: owners, self: self}
 	for _, s := range cur {
-		if listening(s) {
-			if s.proto == "tcp" {
-				listeners[s.local] = owners[s.inode]
-			}
-			v.listens[owners[s.inode]] = appendCapped(v.listens[owners[s.inode]], s.proto+" "+s.local.String())
-		}
-	}
-	local := func(a netip.Addr) bool { return a.IsLoopback() || self[a] }
-	for _, s := range cur {
-		if listening(s) || !s.remote.Addr().IsValid() || s.remote.Port() == 0 {
-			continue
-		}
-		owner := endpoint{pid: owners[s.inode]}
-		var k flowKey
-		var port uint16
-		_, accepted := listenerOf(listeners, s.local)
-		switch {
-		case accepted && local(s.remote.Addr()):
-			continue // the accepted end of a local pair; the dialling end counts it
-		case accepted:
-			k, port = flowKey{endpoint{remote: s.remote.Addr()}, owner}, s.local.Port()
-		case local(s.remote.Addr()):
-			pid, _ := listenerOf(listeners, s.remote)
-			k, port = flowKey{owner, endpoint{pid: pid}}, s.remote.Port()
-		default:
-			k, port = flowKey{owner, endpoint{remote: s.remote.Addr()}}, s.remote.Port()
-		}
-		if k.from == k.to {
+		k, port, ok := c.flowOf(s)
+		if !ok {
 			continue
 		}
 		f := v.flows[k]
@@ -84,6 +61,54 @@ func viewConns(cur, prev []socket, owners map[uint32]int, elapsed float64, self 
 		f.add(s, before, prev != nil && elapsed > 0, elapsed, port)
 	}
 	return v
+}
+
+// collectListens records each owner's listening sockets and returns the TCP listeners.
+func (v *connView) collectListens(cur []socket, owners map[uint32]int) map[netip.AddrPort]int {
+	listeners := map[netip.AddrPort]int{}
+	for _, s := range cur {
+		if !listening(s) {
+			continue
+		}
+		if s.proto == "tcp" {
+			listeners[s.local] = owners[s.inode]
+		} else if s.local.Port() >= ephemeral {
+			continue // a client's socket, such as a DNS lookup's, not a service's
+		}
+		v.listens[owners[s.inode]] = appendCapped(v.listens[owners[s.inode]], s.proto+" "+s.local.String())
+	}
+	return listeners
+}
+
+// classifier places a connected socket in a flow.
+type classifier struct {
+	listeners map[netip.AddrPort]int
+	owners    map[uint32]int
+	self      map[netip.Addr]bool
+}
+
+func (c classifier) local(a netip.Addr) bool { return a.IsLoopback() || c.self[a] }
+
+// flowOf is the flow a socket belongs to and the service port it reaches; ok is false for
+// listeners, unconnected sockets, the accepting end of a local pair, and a process's own loop.
+func (c classifier) flowOf(s socket) (k flowKey, port uint16, ok bool) {
+	if listening(s) || !s.remote.Addr().IsValid() || s.remote.Port() == 0 {
+		return k, 0, false
+	}
+	owner := endpoint{pid: c.owners[s.inode]}
+	_, accepted := listenerOf(c.listeners, s.local)
+	switch {
+	case accepted && c.local(s.remote.Addr()):
+		return k, 0, false // the dialling end counts it
+	case accepted:
+		k, port = flowKey{endpoint{remote: s.remote.Addr()}, owner}, s.local.Port()
+	case c.local(s.remote.Addr()):
+		pid, _ := listenerOf(c.listeners, s.remote)
+		k, port = flowKey{owner, endpoint{pid: pid}}, s.remote.Port()
+	default:
+		k, port = flowKey{owner, endpoint{remote: s.remote.Addr()}}, s.remote.Port()
+	}
+	return k, port, k.from != k.to
 }
 
 func (f *flow) add(s socket, before map[uint64]socket, rated bool, elapsed float64, port uint16) {

@@ -3,7 +3,9 @@
 The `localhost` module of Wayseer Desktop: the machine Wayseer runs on. It lists the host, its
 CPUs, memory, disks, filesystems, network interfaces and processes, with series for their use.
 Where the machine runs systemd it adds the system units and their dependencies, and journal
-entries as events; on Windows it adds the services, from the service control manager. On Linux it reads `/proc` and `/sys`; on macOS, sysctls and Mach calls; on
+entries as events; on Windows it adds the services, from the service control manager. With
+`connections: true` on Linux, it adds the machine's network connections: each remote address,
+which process talks to it and at how many bytes per second, and the listening sockets. On Linux it reads `/proc`, `/sys` and sock_diag; on macOS, sysctls and Mach calls; on
 Windows, Win32 calls through `golang.org/x/sys/windows`.
 
 ```
@@ -15,7 +17,8 @@ user guide, under "This machine".
 
 `testdata` holds a made-up Linux tree (`procfs`), systemd's answers, journal entries and a
 made-up Windows machine's answers (`windows`), which the tests read instead of the machine, on
-any OS. `scripts/recordunits.sh` re-records
+any OS. The sock_diag parser is tested on messages built in the tests, and
+`TestLiveSockets` reads this machine's own sockets on Linux. `scripts/recordunits.sh` re-records
 `testdata/systemd/stops.json` on a machine with systemd.
 
 ## Working on it
