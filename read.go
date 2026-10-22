@@ -73,13 +73,15 @@ type source interface {
 
 // reader reads a machine through a file tree rooted like /.
 type reader struct {
-	fsys    fs.FS
-	root    string
-	statfs  func(path string) (fsUsage, error)
-	addrs   func() map[string][]string // interface addresses; nil when unknown
-	procs   bool
-	cmds    bool                   // read command lines
-	details map[procKey]procDetail // cached per process, since they rarely change
+	fsys       fs.FS
+	root       string
+	statfs     func(path string) (fsUsage, error)
+	addrs      func() map[string][]string // interface addresses; nil when unknown
+	procs      bool
+	cmds       bool                   // read command lines
+	details    map[procKey]procDetail // cached per process, since they rarely change
+	owners     map[uint32]int         // socket inode to pid as last scanned; 0 for unowned
+	ownerScans int
 }
 
 // read takes a sample; only /proc/stat and /proc/meminfo are required.
