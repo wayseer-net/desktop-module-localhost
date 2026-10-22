@@ -52,13 +52,18 @@ func testModule(t *testing.T, root, extra string) *Module {
 
 func configure(t *testing.T, m *Module, opts string) {
 	t.Helper()
+	if err := configureErr(t, m, opts); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func configureErr(t *testing.T, m *Module, opts string) error {
+	t.Helper()
 	var n yaml.Node
 	if err := yaml.Unmarshal([]byte(opts), &n); err != nil {
 		t.Fatal(err)
 	}
-	if err := m.Configure(context.Background(), sdk.Config{Name: "local", Options: *n.Content[0]}); err != nil {
-		t.Fatal(err)
-	}
+	return m.Configure(context.Background(), sdk.Config{Name: "local", Options: *n.Content[0]})
 }
 
 func ref(kind sdk.Kind, native string) sdk.EntityRef {

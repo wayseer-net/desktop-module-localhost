@@ -22,6 +22,9 @@
 //	      connections: false    # network connections and listening sockets, on Linux
 //	      connection_limit: 500 # remote addresses listed, busiest first
 //	      connection_keep: 1m   # how long a remote stays listed after its connections close
+//	      geoip:                # IP databases in MMDB format, such as DB-IP Lite or GeoLite2
+//	        city: ~/.local/share/geoip/city.mmdb  # places remotes on Geo, with city and country
+//	        asn: ~/.local/share/geoip/asn.mmdb    # names each remote's network, grouping them by it
 //
 // Units never seen running are left out; one that stops stays for keep_stopped, and failed ones
 // stay. A unit that should be running (enabled, or wanted by an active target; not a oneshot, nor
@@ -36,6 +39,8 @@
 // talking to it by a talks_to edge that carries TCP's bytes per second; connections between
 // local processes join them directly. Without privileges, other users' sockets show on the
 // host. Listening sockets are an attribute, and a TCP listener opening or closing is an event.
+// Public remotes are looked up in the geoip databases, which the user provides; each remote
+// placed or named credits the database in location_source, as its license asks.
 //
 // Parsing is kept apart from reading so the parsers are tested on captured files.
 package localhost

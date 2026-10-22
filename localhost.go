@@ -33,6 +33,7 @@ type Module struct {
 	addrs        func() map[string][]string
 	native       func(*reader) platform
 	sockets      func() ([]socket, string, error) // nil where the OS has no reader
+	openGeo      func(geoipOptions) (locator, error)
 	system       system
 	journalRetry time.Duration // wait before restarting journalctl
 
@@ -48,6 +49,7 @@ type Module struct {
 	events      *sdk.EventLog
 	journalNote string
 	conns       connState
+	geo         locator // nil without IP databases
 	running     bool
 }
 
@@ -61,7 +63,7 @@ type platform struct {
 
 // New makes an unconfigured module.
 func New() *Module {
-	return &Module{statfs: statfs, addrs: interfaceAddrs, native: nativeSource, system: liveSystem{}, sockets: socketSource, journalRetry: 30 * time.Second, metrics: catalogue}
+	return &Module{statfs: statfs, addrs: interfaceAddrs, native: nativeSource, system: liveSystem{}, sockets: socketSource, openGeo: openGeoIP, journalRetry: 30 * time.Second, metrics: catalogue}
 }
 
 // Info describes the module.
@@ -81,8 +83,19 @@ func (m *Module) Configure(_ context.Context, cfg sdk.Config) error {
 	if !supported && o.Root == "/" {
 		return fmt.Errorf("line %d: %w", cfg.Line, errUnsupported)
 	}
+	var geo locator
+	if o.Connections {
+		var err error
+		if geo, err = m.openGeo(o.GeoIP); err != nil {
+			return fmt.Errorf("line %d: %w", cfg.Line, err)
+		}
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.geo != nil {
+		m.geo.close()
+	}
+	m.geo = geo
 	m.name, m.opts, m.pageSize = cfg.Name, o, uint64(os.Getpagesize())
 	addrs, sys, socks := m.addrs, m.system, m.sockets
 	if _, live := sys.(liveSystem); live && o.Root != "/" {

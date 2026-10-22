@@ -1,6 +1,10 @@
 package localhost
 
-import "wayseer.dev/sdk"
+import (
+	"cmp"
+
+	"wayseer.dev/sdk"
+)
 
 // AttrGroup names the group Topology draws an entity in.
 const AttrGroup = "group"
@@ -13,7 +17,7 @@ var hardware = map[sdk.Kind]bool{
 	sdk.KindHost: true, KindCPU: true, KindMemory: true, sdk.KindDisk: true, KindFilesystem: true, sdk.KindInterface: true,
 }
 
-// group sets each entity's group: the machine's parts as hardware, a busy unit with its
+// group sets each entity's group: the machine's parts as hardware, remotes by their network, a busy unit with its
 // processes, other units with processes as services, the idle units as systemd, and processes
 // in no unit as processes.
 func (w *world) group() {
@@ -40,7 +44,7 @@ func (w *world) group() {
 		case hardware[e.Kind]:
 			g = "hardware"
 		case e.Kind == KindRemote:
-			g = "network"
+			g = cmp.Or(e.Attrs["organization"].Str(), "network")
 		case e.Kind == sdk.KindProcess && unitOf[r] == "":
 			g = "processes"
 		case e.Kind == sdk.KindProcess:

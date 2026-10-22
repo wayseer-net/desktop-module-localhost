@@ -201,10 +201,7 @@ func (b *builder) connections(flows map[flowKey]flow, listens map[int][]string) 
 		}
 	}
 	for a, r := range remotes {
-		b.add(KindRemote, a.String(), a.String(), okStatus, map[string]sdk.Value{
-			"address": sdk.String(a.String()), "scope": sdk.String(scope(a)), "ports": portList(r.ports),
-			"protocols": stringList(r.protos), "connections": num(r.conns),
-		})
+		b.remote(a, r)
 	}
 	for k, s := range edges {
 		e := sdk.Edge{From: k.From, To: k.To, Rel: k.Rel, Weight: 1, Source: b.src, Attrs: map[string]sdk.Value{
@@ -223,6 +220,23 @@ func (b *builder) connections(flows map[flowKey]flow, listens map[int][]string) 
 		e.Attrs["listens"] = stringList(appendAllCapped(listsOf(e.Attrs["listens"]), ls))
 		b.w.ents[r] = e
 	}
+}
+
+// remote adds a remote address, placed and named by the IP databases if there are any.
+func (b *builder) remote(a netip.Addr, f *flow) {
+	attrs := map[string]sdk.Value{
+		"address": sdk.String(a.String()), "scope": sdk.String(scope(a)), "ports": portList(f.ports),
+		"protocols": stringList(f.protos), "connections": num(f.conns),
+	}
+	var l location
+	if b.geo != nil {
+		l = b.geo.locate(a)
+		maps.Copy(attrs, l.attrs())
+	}
+	r := b.add(KindRemote, a.String(), a.String(), okStatus, attrs)
+	e := b.w.ents[r]
+	e.Place = l.place
+	b.w.ents[r] = e
 }
 
 // endpointRef is a remote's entity, a listed process, or else the host.

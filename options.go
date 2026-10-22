@@ -3,6 +3,7 @@ package localhost
 import (
 	"cmp"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -24,8 +25,18 @@ type options struct {
 	Connections     bool          `yaml:"connections"`      // list network connections and listening sockets, on Linux; default false
 	ConnectionLimit int           `yaml:"connection_limit"` // remote addresses listed, busiest first, 1 to 5000; default 500
 	ConnectionKeep  time.Duration `yaml:"connection_keep"`  // how long a remote stays listed after its last connection closes, up to 1h; default 1m
+	GeoIP           geoipOptions  `yaml:"geoip"`            // IP databases that place and name public remote addresses; default none
 
 	priority int // Journal parsed; -1 when off
+}
+
+// maxConnections is the most remotes connection_limit allows.
+const maxConnections = 5000
+
+// geoipOptions are paths to databases in MMDB format, such as DB-IP Lite or MaxMind GeoLite2.
+type geoipOptions struct {
+	City string `yaml:"city"` // places an address and names its city and country
+	ASN  string `yaml:"asn"`  // names the network an address is in
 }
 
 var unitTypes = []string{"service", "socket", "timer", "target", "path", "mount", "automount", "swap", "device", "slice", "scope"}
@@ -66,10 +77,17 @@ func (o *options) validate() error {
 
 func (o *options) validateConnections() error {
 	switch {
-	case o.ConnectionLimit < 1 || o.ConnectionLimit > 5000:
-		return fmt.Errorf("connection_limit %d must be between 1 and 5000", o.ConnectionLimit)
+	case o.ConnectionLimit < 1 || o.ConnectionLimit > maxConnections:
+		return fmt.Errorf("connection_limit %d must be between 1 and %d", o.ConnectionLimit, maxConnections)
 	case o.ConnectionKeep < 0 || o.ConnectionKeep > time.Hour:
 		return fmt.Errorf("connection_keep %v must be between 0 and 1h", o.ConnectionKeep)
+	case !o.Connections && o.GeoIP != geoipOptions{}:
+		return errGeoNeedsConnections
+	}
+	for _, p := range []*string{&o.GeoIP.City, &o.GeoIP.ASN} {
+		if *p = expandHome(*p); *p != "" && !filepath.IsAbs(*p) {
+			return fmt.Errorf("geoip path %q must be absolute or start with ~/", *p)
+		}
 	}
 	return nil
 }
@@ -82,6 +100,18 @@ func (o *options) parseJournal() error {
 	p, err := parsePriority(o.Journal)
 	o.priority = p
 	return err
+}
+
+// expandHome replaces a leading ~/ with the home directory.
+func expandHome(p string) string {
+	rest, ok := strings.CutPrefix(p, "~/")
+	if !ok {
+		return p
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		return filepath.Join(home, rest)
+	}
+	return p
 }
 
 // points is how many samples a history of d holds.

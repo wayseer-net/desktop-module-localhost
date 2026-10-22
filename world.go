@@ -42,12 +42,13 @@ type world struct {
 type builder struct {
 	src      sdk.ModuleID
 	pageSize uint64
-	local    bool // the machine read is the one Wayseer runs on
+	local    bool    // the machine read is the one Wayseer runs on
+	geo      locator // nil without IP databases
 	w        world
 }
 
 func (m *Module) buildWorld(s *sample) world {
-	b := builder{src: m.name, pageSize: m.pageSize, local: m.opts.Root == "/", w: world{ents: map[sdk.EntityRef]sdk.Entity{}, edges: map[sdk.EdgeKey]sdk.Edge{}}}
+	b := builder{src: m.name, pageSize: m.pageSize, local: m.opts.Root == "/", geo: m.geo, w: world{ents: map[sdk.EntityRef]sdk.Entity{}, edges: map[sdk.EdgeKey]sdk.Edge{}}}
 	b.w.host = b.hostEntity(s)
 	for i, c := range s.stat.cpus {
 		r := b.add(KindCPU, c.name, c.name, okStatus, map[string]sdk.Value{"index": num(i)})
