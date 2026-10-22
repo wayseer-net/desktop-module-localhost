@@ -20,10 +20,14 @@ func fakeSockets() func() ([]socket, string, error) {
 	return func() ([]socket, string, error) {
 		reads++
 		return []socket{
-			{proto: "tcp", state: tcpEstablished, local: netip.MustParseAddrPort("192.0.2.10:50412"), remote: netip.MustParseAddrPort("198.51.100.7:443"),
-				inode: 4711, cookie: 1, sent: 2000 * reads, received: 50000 * reads, counted: true},
-			{proto: "tcp", state: tcpListen, local: netip.MustParseAddrPort("127.0.0.1:8080"), remote: netip.AddrPortFrom(netip.IPv4Unspecified(), 0),
-				inode: 4712, cookie: 2},
+			{
+				proto: "tcp", state: tcpEstablished, local: netip.MustParseAddrPort("192.0.2.10:50412"), remote: netip.MustParseAddrPort("198.51.100.7:443"),
+				inode: 4711, cookie: 1, sent: 2000 * reads, received: 50000 * reads, counted: true,
+			},
+			{
+				proto: "tcp", state: tcpListen, local: netip.MustParseAddrPort("127.0.0.1:8080"), remote: netip.AddrPortFrom(netip.IPv4Unspecified(), 0),
+				inode: 4712, cookie: 2,
+			},
 		}, "", nil
 	}
 }
