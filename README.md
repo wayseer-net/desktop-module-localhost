@@ -7,7 +7,8 @@ entries as events; on Windows it adds the services, from the service control man
 `connections: true` on Linux, it adds the machine's network connections: each remote address,
 which process talks to it and at how many bytes per second, and the listening sockets; with
 `geoip` databases in MMDB format (DB-IP Lite or MaxMind GeoLite2, which the user downloads), it
-places public remotes on the map and names their networks. On Linux it reads `/proc`, `/sys` and sock_diag; on macOS, sysctls and Mach calls; on
+places public remotes on the map and names their networks; with a `place`, the host and its
+processes are on the map too, so Geo draws their connections. On Linux it reads `/proc`, `/sys` and sock_diag; on macOS, sysctls and Mach calls; on
 Windows, Win32 calls through `golang.org/x/sys/windows`.
 
 ```

@@ -2,12 +2,15 @@ package localhost
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"time"
+
+	"wayseer.dev/sdk"
 )
 
 type options struct {
@@ -27,6 +30,8 @@ type options struct {
 	ConnectionKeep  time.Duration `yaml:"connection_keep"`  // how long a remote stays listed after its last connection closes, up to 1h; default 1m
 	GeoIP           geoipOptions  `yaml:"geoip"`            // IP databases that place and name public remote addresses; default none
 
+	Place placeOptions `yaml:"place"` // where this machine is, which the host and its processes take on the map; default none
+
 	priority int // Journal parsed; -1 when off
 }
 
@@ -37,6 +42,34 @@ const maxConnections = 5000
 type geoipOptions struct {
 	City string `yaml:"city"` // places an address and names its city and country
 	ASN  string `yaml:"asn"`  // names the network an address is in
+}
+
+// placeOptions are a latitude and longitude in degrees; both or neither are given.
+type placeOptions struct {
+	Lat *float32 `yaml:"lat"` // degrees north, -90 to 90
+	Lon *float32 `yaml:"lon"` // degrees east, -180 to 180
+}
+
+// place is where the options put the machine, or no place.
+func (p placeOptions) place() sdk.Place {
+	if p.Lat == nil || p.Lon == nil {
+		return sdk.Place{}
+	}
+	return sdk.At(*p.Lat, *p.Lon)
+}
+
+func (p placeOptions) validate() error {
+	switch {
+	case p.Lat == nil && p.Lon == nil:
+		return nil
+	case p.Lat == nil || p.Lon == nil:
+		return errors.New("place needs both lat and lon")
+	case *p.Lat < -90 || *p.Lat > 90:
+		return fmt.Errorf("place lat %v must be between -90 and 90", *p.Lat)
+	case *p.Lon < -180 || *p.Lon > 180:
+		return fmt.Errorf("place lon %v must be between -180 and 180", *p.Lon)
+	}
+	return nil
 }
 
 var unitTypes = []string{"service", "socket", "timer", "target", "path", "mount", "automount", "swap", "device", "slice", "scope"}
@@ -72,7 +105,7 @@ func (o *options) validate() error {
 	if o.Root != "/" {
 		o.Root = filepath.Clean(o.Root)
 	}
-	return cmp.Or(o.validateConnections(), o.parseJournal())
+	return cmp.Or(o.validateConnections(), o.Place.validate(), o.parseJournal())
 }
 
 func (o *options) validateConnections() error {

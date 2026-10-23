@@ -42,13 +42,14 @@ type world struct {
 type builder struct {
 	src      sdk.ModuleID
 	pageSize uint64
-	local    bool    // the machine read is the one Wayseer runs on
-	geo      locator // nil without IP databases
+	local    bool      // the machine read is the one Wayseer runs on
+	geo      locator   // nil without IP databases
+	place    sdk.Place // where the host and its processes are; unknown without the place option
 	w        world
 }
 
 func (m *Module) buildWorld(s *sample) world {
-	b := builder{src: m.name, pageSize: m.pageSize, local: m.opts.Root == "/", geo: m.geo, w: world{ents: map[sdk.EntityRef]sdk.Entity{}, edges: map[sdk.EdgeKey]sdk.Edge{}}}
+	b := builder{src: m.name, pageSize: m.pageSize, local: m.opts.Root == "/", geo: m.geo, place: m.opts.Place.place(), w: world{ents: map[sdk.EntityRef]sdk.Entity{}, edges: map[sdk.EdgeKey]sdk.Edge{}}}
 	b.w.host = b.hostEntity(s)
 	for i, c := range s.stat.cpus {
 		r := b.add(KindCPU, c.name, c.name, okStatus, map[string]sdk.Value{"index": num(i)})
@@ -136,7 +137,7 @@ func (b *builder) hostEntity(s *sample) sdk.EntityRef {
 	for _, n := range s.nics {
 		ips = append(ips, n.addrs...)
 	}
-	return b.add(sdk.KindHost, s.host.name, s.host.name, okStatus, pruned(map[string]sdk.Value{
+	return b.addPlaced(sdk.KindHost, s.host.name, s.host.name, pruned(map[string]sdk.Value{
 		"hostname": sdk.String(s.host.name), "kernel": sdk.String(s.host.kernel), "os": sdk.String(s.host.os),
 		"cores": num(len(s.stat.cpus)), "memory": inBytes(s.mem.total), "booted": sdk.Time(s.stat.boot),
 		"ip": stringList(ips),
@@ -209,7 +210,7 @@ func (b *builder) processes(s *sample) {
 		if !p.startUnknown {
 			a["started"] = sdk.Time(s.stat.boot.Add(time.Duration(p.start) * time.Second / clockTick))
 		}
-		r := b.add(sdk.KindProcess, strconv.Itoa(p.pid), p.comm, okStatus, a)
+		r := b.addPlaced(sdk.KindProcess, strconv.Itoa(p.pid), p.comm, a)
 		b.link(r, b.w.host, sdk.RelRunsOn)
 		if u, ok := b.unitOfCgroup(p.cgroup); ok {
 			b.link(r, u, sdk.RelMemberOf)
@@ -245,6 +246,15 @@ func (b *builder) ref(kind sdk.Kind, native string) sdk.EntityRef {
 func (b *builder) add(kind sdk.Kind, native, name string, st sdk.Status, a map[string]sdk.Value) sdk.EntityRef {
 	r := b.ref(kind, native)
 	b.w.ents[r] = sdk.Entity{Ref: r, Kind: kind, Name: name, Status: st, Attrs: a, Source: b.src}
+	return r
+}
+
+// addPlaced adds an entity at the machine's place.
+func (b *builder) addPlaced(kind sdk.Kind, native, name string, a map[string]sdk.Value) sdk.EntityRef {
+	r := b.add(kind, native, name, okStatus, a)
+	e := b.w.ents[r]
+	e.Place = b.place
+	b.w.ents[r] = e
 	return r
 }
 
